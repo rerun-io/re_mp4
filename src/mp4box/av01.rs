@@ -31,7 +31,7 @@ impl Av01Box {
 }
 
 impl Mp4Box for Av01Box {
-    fn box_type(&self) -> crate::BoxType {
+    fn box_type(&self) -> BoxType {
         self.get_type()
     }
 
@@ -39,12 +39,12 @@ impl Mp4Box for Av01Box {
         self.get_size()
     }
 
-    fn to_json(&self) -> crate::Result<String> {
-        todo!()
+    fn to_json(&self) -> Result<String> {
+        Ok(serde_json::to_string(&self).unwrap())
     }
 
-    fn summary(&self) -> crate::Result<String> {
-        todo!()
+    fn summary(&self) -> Result<String> {
+        Ok(("todo").into())
     }
 }
 
@@ -146,15 +146,15 @@ impl Mp4Box for Av1CBox {
     }
 
     fn box_size(&self) -> u64 {
-        todo!()
+        4
     }
 
     fn to_json(&self) -> Result<String> {
-        todo!()
+        Ok(serde_json::to_string(&self).unwrap())
     }
 
     fn summary(&self) -> Result<String> {
-        todo!()
+        Ok(("todo").into())
     }
 }
 
@@ -206,6 +206,38 @@ impl<R: Read + Seek> ReadBox<&mut R> for Av1CBox {
 
 impl<W: Write> WriteBox<&mut W> for Av1CBox {
     fn write_box(&self, writer: &mut W) -> Result<u64> {
-        todo!()
+        let size = self.box_size();
+
+        // Write the marker byte
+        let marker_byte = 0x80 | 0x01;
+        writer.write_u8(marker_byte)?;
+
+        // Write the profile and level byte
+        let profile_byte = (self.profile << 5) | (self.level & 0x1f);
+        writer.write_u8(profile_byte)?;
+
+        // Write the flags byte
+        let bit_depth_flag = match self.bit_depth {
+            12 => 0x60,
+            10 => 0x40,
+            _ => 0x00, // Assuming 8-bit depth
+        };
+        let flags_byte = bit_depth_flag
+            | ((self.tier & 0x01) << 7)
+            | ((self.monochrome as u8) << 4)
+            | ((self.chroma_subsampling_x & 0x01) << 3)
+            | ((self.chroma_subsampling_y & 0x01) << 2)
+            | (self.chroma_sample_position & 0x03);
+        writer.write_u8(flags_byte)?;
+
+        // Write the delay byte
+        let delay_byte = if self.initial_presentation_delay_present {
+            0x10 | (self.initial_presentation_delay_minus_one & 0x0f)
+        } else {
+            0x00
+        };
+        writer.write_u8(delay_byte)?;
+
+        Ok(size)
     }
 }

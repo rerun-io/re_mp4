@@ -285,7 +285,7 @@ fn size_of_length(size: u32) -> u32 {
 fn write_desc<W: Write>(writer: &mut W, tag: u8, size: u32) -> Result<u64> {
     writer.write_u8(tag)?;
 
-    if size as u64 > std::u32::MAX as u64 {
+    if size as u64 > u32::MAX as u64 {
         return Err(Error::InvalidData("invalid descriptor length range"));
     }
 
