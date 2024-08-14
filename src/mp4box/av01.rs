@@ -138,6 +138,7 @@ pub struct Av1CBox {
     pub chroma_sample_position: u8,
     pub initial_presentation_delay_present: bool,
     pub initial_presentation_delay_minus_one: u8,
+    pub config_obus: Vec<u8>, // Holds the variable-length configOBUs
 }
 
 impl Mp4Box for Av1CBox {
@@ -146,7 +147,7 @@ impl Mp4Box for Av1CBox {
     }
 
     fn box_size(&self) -> u64 {
-        4
+        4 + self.config_obus.len() as u64
     }
 
     fn to_json(&self) -> Result<String> {
@@ -159,7 +160,7 @@ impl Mp4Box for Av1CBox {
 }
 
 impl<R: Read + Seek> ReadBox<&mut R> for Av1CBox {
-    fn read_box(reader: &mut R, _: u64) -> Result<Self> {
+    fn read_box(reader: &mut R, size: u64) -> Result<Self> {
         let marker_byte = reader.read_u8()?;
         if marker_byte & 0x80 != 0x80 {
             return Err(Error::InvalidData("missing av1C marker bit"));
@@ -189,6 +190,16 @@ impl<R: Read + Seek> ReadBox<&mut R> for Av1CBox {
             0
         };
 
+        // av1c box has 4 fixed byte-sized fields
+        // config obus are stored as bytes directly after the fixed fields
+        // the header tells us how many bytes the box is in total
+        let config_obus_size = size
+            .checked_sub(HEADER_SIZE + 4) // header bytes + fixed field bytes
+            .ok_or(Error::InvalidData("invalid box size"))?;
+
+        let mut config_obus = vec![0u8; config_obus_size as usize];
+        reader.read_exact(&mut config_obus)?;
+
         Ok(Av1CBox {
             profile,
             level,
@@ -200,6 +211,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for Av1CBox {
             chroma_sample_position,
             initial_presentation_delay_present,
             initial_presentation_delay_minus_one,
+            config_obus,
         })
     }
 }
@@ -234,6 +246,8 @@ impl<W: Write> WriteBox<&mut W> for Av1CBox {
             0x00
         };
         writer.write_u8(delay_byte)?;
+
+        writer.write_all(&self.config_obus)?;
 
         Ok(size)
     }
