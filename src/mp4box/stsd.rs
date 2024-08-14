@@ -12,6 +12,9 @@ pub struct StsdBox {
     pub flags: u32,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub av01: Option<Av01Box>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub avc1: Option<Avc1Box>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -34,7 +37,9 @@ impl StsdBox {
 
     pub fn get_size(&self) -> u64 {
         let mut size = HEADER_SIZE + HEADER_EXT_SIZE + 4;
-        if let Some(ref avc1) = self.avc1 {
+        if let Some(ref av01) = self.av01 {
+            size += av01.box_size();
+        } else if let Some(ref avc1) = self.avc1 {
             size += avc1.box_size();
         } else if let Some(ref hev1) = self.hev1 {
             size += hev1.box_size();
@@ -76,6 +81,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for StsdBox {
 
         reader.read_u32::<BigEndian>()?; // XXX entry_count
 
+        let mut av01 = None;
         let mut avc1 = None;
         let mut hev1 = None;
         let mut vp09 = None;
@@ -92,6 +98,9 @@ impl<R: Read + Seek> ReadBox<&mut R> for StsdBox {
         }
 
         match name {
+            BoxType::Av01Box => {
+                av01 = Some(Av01Box::read_box(reader, s)?);
+            }
             BoxType::Avc1Box => {
                 avc1 = Some(Avc1Box::read_box(reader, s)?);
             }
@@ -115,6 +124,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for StsdBox {
         Ok(StsdBox {
             version,
             flags,
+            av01,
             avc1,
             hev1,
             vp09,
@@ -133,7 +143,9 @@ impl<W: Write> WriteBox<&mut W> for StsdBox {
 
         writer.write_u32::<BigEndian>(1)?; // entry_count
 
-        if let Some(ref avc1) = self.avc1 {
+        if let Some(ref av01) = self.av01 {
+            av01.write_box(writer)?;
+        } else if let Some(ref avc1) = self.avc1 {
             avc1.write_box(writer)?;
         } else if let Some(ref hev1) = self.hev1 {
             hev1.write_box(writer)?;

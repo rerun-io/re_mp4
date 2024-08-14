@@ -6,6 +6,17 @@ use std::fs::{self, File};
 use std::io::BufReader;
 use std::time::Duration;
 
+/* #[test]
+fn test_read_mp4_av1() {
+    let mut mp4 = get_reader("tests/samples/bbb_video_av1_frag.mp4");
+
+    for track in mp4.tracks().values() {
+        println!("{:?}", track.trak.mdia.minf.stbl.stsd);
+    }
+
+    panic!();
+} */
+
 #[test]
 fn test_read_mp4() {
     let mut mp4 = get_reader("tests/samples/minimal.mp4");
