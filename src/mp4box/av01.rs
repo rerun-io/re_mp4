@@ -207,16 +207,14 @@ impl<R: Read + Seek> ReadBox<&mut R> for Av1CBox {
 impl<W: Write> WriteBox<&mut W> for Av1CBox {
     fn write_box(&self, writer: &mut W) -> Result<u64> {
         let size = self.box_size();
+        BoxHeader::new(self.box_type(), size).write(writer)?;
 
-        // Write the marker byte
         let marker_byte = 0x80 | 0x01;
         writer.write_u8(marker_byte)?;
 
-        // Write the profile and level byte
         let profile_byte = (self.profile << 5) | (self.level & 0x1f);
         writer.write_u8(profile_byte)?;
 
-        // Write the flags byte
         let bit_depth_flag = match self.bit_depth {
             12 => 0x60,
             10 => 0x40,
@@ -230,7 +228,6 @@ impl<W: Write> WriteBox<&mut W> for Av1CBox {
             | (self.chroma_sample_position & 0x03);
         writer.write_u8(flags_byte)?;
 
-        // Write the delay byte
         let delay_byte = if self.initial_presentation_delay_present {
             0x10 | (self.initial_presentation_delay_minus_one & 0x0f)
         } else {
