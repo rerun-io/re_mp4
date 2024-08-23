@@ -1,6 +1,6 @@
-use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use byteorder::{BigEndian, ReadBytesExt, };
 use serde::Serialize;
-use std::io::{Read, Seek, Write};
+use std::io::{Read, Seek, };
 
 use crate::mp4box::*;
 
@@ -67,71 +67,5 @@ impl<R: Read + Seek> ReadBox<&mut R> for MehdBox {
             flags,
             fragment_duration,
         })
-    }
-}
-
-impl<W: Write> WriteBox<&mut W> for MehdBox {
-    fn write_box(&self, writer: &mut W) -> Result<u64> {
-        let size = self.box_size();
-        BoxHeader::new(self.box_type(), size).write(writer)?;
-
-        write_box_header_ext(writer, self.version, self.flags)?;
-
-        if self.version == 1 {
-            writer.write_u64::<BigEndian>(self.fragment_duration)?;
-        } else if self.version == 0 {
-            writer.write_u32::<BigEndian>(self.fragment_duration as u32)?;
-        } else {
-            return Err(Error::InvalidData("version must be 0 or 1"));
-        }
-
-        Ok(size)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::mp4box::BoxHeader;
-    use std::io::Cursor;
-
-    #[test]
-    fn test_mehd32() {
-        let src_box = MehdBox {
-            version: 0,
-            flags: 0,
-            fragment_duration: 32,
-        };
-        let mut buf = Vec::new();
-        src_box.write_box(&mut buf).unwrap();
-        assert_eq!(buf.len(), src_box.box_size() as usize);
-
-        let mut reader = Cursor::new(&buf);
-        let header = BoxHeader::read(&mut reader).unwrap();
-        assert_eq!(header.name, BoxType::MehdBox);
-        assert_eq!(src_box.box_size(), header.size);
-
-        let dst_box = MehdBox::read_box(&mut reader, header.size).unwrap();
-        assert_eq!(src_box, dst_box);
-    }
-
-    #[test]
-    fn test_mehd64() {
-        let src_box = MehdBox {
-            version: 0,
-            flags: 0,
-            fragment_duration: 30439936,
-        };
-        let mut buf = Vec::new();
-        src_box.write_box(&mut buf).unwrap();
-        assert_eq!(buf.len(), src_box.box_size() as usize);
-
-        let mut reader = Cursor::new(&buf);
-        let header = BoxHeader::read(&mut reader).unwrap();
-        assert_eq!(header.name, BoxType::MehdBox);
-        assert_eq!(src_box.box_size(), header.size);
-
-        let dst_box = MehdBox::read_box(&mut reader, header.size).unwrap();
-        assert_eq!(src_box, dst_box);
     }
 }

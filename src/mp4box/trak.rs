@@ -1,5 +1,5 @@
 use serde::Serialize;
-use std::io::{Read, Seek, Write};
+use std::io::{Read, Seek, };
 
 use crate::meta::MetaBox;
 use crate::mp4box::*;
@@ -111,20 +111,5 @@ impl<R: Read + Seek> ReadBox<&mut R> for TrakBox {
             meta,
             mdia: mdia.unwrap(),
         })
-    }
-}
-
-impl<W: Write> WriteBox<&mut W> for TrakBox {
-    fn write_box(&self, writer: &mut W) -> Result<u64> {
-        let size = self.box_size();
-        BoxHeader::new(self.box_type(), size).write(writer)?;
-
-        self.tkhd.write_box(writer)?;
-        if let Some(ref edts) = self.edts {
-            edts.write_box(writer)?;
-        }
-        self.mdia.write_box(writer)?;
-
-        Ok(size)
     }
 }

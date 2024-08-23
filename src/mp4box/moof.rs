@@ -1,11 +1,14 @@
 use serde::Serialize;
-use std::io::{Read, Seek, Write};
+use std::io::{Read, Seek};
 
 use crate::mp4box::*;
 use crate::mp4box::{mfhd::MfhdBox, traf::TrafBox};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
 pub struct MoofBox {
+    /// The start position of the box in the stream.
+    pub start: u64,
+
     pub mfhd: MfhdBox,
 
     #[serde(rename = "traf")]
@@ -87,21 +90,9 @@ impl<R: Read + Seek> ReadBox<&mut R> for MoofBox {
         skip_bytes_to(reader, start + size)?;
 
         Ok(MoofBox {
+            start,
             mfhd: mfhd.unwrap(),
             trafs,
         })
-    }
-}
-
-impl<W: Write> WriteBox<&mut W> for MoofBox {
-    fn write_box(&self, writer: &mut W) -> Result<u64> {
-        let size = self.box_size();
-        BoxHeader::new(self.box_type(), size).write(writer)?;
-
-        self.mfhd.write_box(writer)?;
-        for traf in self.trafs.iter() {
-            traf.write_box(writer)?;
-        }
-        Ok(0)
     }
 }

@@ -166,53 +166,53 @@ const HANDLER_TYPE_SUBTITLE: &str = "sbtl";
 const HANDLER_TYPE_SUBTITLE_FOURCC: [u8; 4] = [b's', b'b', b't', b'l'];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TrackType {
+pub enum TrackKind {
     Video,
     Audio,
     Subtitle,
 }
 
-impl fmt::Display for TrackType {
+impl fmt::Display for TrackKind {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let s = match self {
-            TrackType::Video => DISPLAY_TYPE_VIDEO,
-            TrackType::Audio => DISPLAY_TYPE_AUDIO,
-            TrackType::Subtitle => DISPLAY_TYPE_SUBTITLE,
+            TrackKind::Video => DISPLAY_TYPE_VIDEO,
+            TrackKind::Audio => DISPLAY_TYPE_AUDIO,
+            TrackKind::Subtitle => DISPLAY_TYPE_SUBTITLE,
         };
         write!(f, "{s}")
     }
 }
 
-impl TryFrom<&str> for TrackType {
+impl TryFrom<&str> for TrackKind {
     type Error = Error;
-    fn try_from(handler: &str) -> Result<TrackType> {
+    fn try_from(handler: &str) -> Result<TrackKind> {
         match handler {
-            HANDLER_TYPE_VIDEO => Ok(TrackType::Video),
-            HANDLER_TYPE_AUDIO => Ok(TrackType::Audio),
-            HANDLER_TYPE_SUBTITLE => Ok(TrackType::Subtitle),
+            HANDLER_TYPE_VIDEO => Ok(TrackKind::Video),
+            HANDLER_TYPE_AUDIO => Ok(TrackKind::Audio),
+            HANDLER_TYPE_SUBTITLE => Ok(TrackKind::Subtitle),
             _ => Err(Error::InvalidData("unsupported handler type")),
         }
     }
 }
 
-impl TryFrom<&FourCC> for TrackType {
+impl TryFrom<&FourCC> for TrackKind {
     type Error = Error;
-    fn try_from(fourcc: &FourCC) -> Result<TrackType> {
+    fn try_from(fourcc: &FourCC) -> Result<TrackKind> {
         match fourcc.value {
-            HANDLER_TYPE_VIDEO_FOURCC => Ok(TrackType::Video),
-            HANDLER_TYPE_AUDIO_FOURCC => Ok(TrackType::Audio),
-            HANDLER_TYPE_SUBTITLE_FOURCC => Ok(TrackType::Subtitle),
+            HANDLER_TYPE_VIDEO_FOURCC => Ok(TrackKind::Video),
+            HANDLER_TYPE_AUDIO_FOURCC => Ok(TrackKind::Audio),
+            HANDLER_TYPE_SUBTITLE_FOURCC => Ok(TrackKind::Subtitle),
             _ => Err(Error::InvalidData("unsupported handler type")),
         }
     }
 }
 
-impl From<TrackType> for FourCC {
-    fn from(t: TrackType) -> FourCC {
+impl From<TrackKind> for FourCC {
+    fn from(t: TrackKind) -> FourCC {
         match t {
-            TrackType::Video => HANDLER_TYPE_VIDEO_FOURCC.into(),
-            TrackType::Audio => HANDLER_TYPE_AUDIO_FOURCC.into(),
-            TrackType::Subtitle => HANDLER_TYPE_SUBTITLE_FOURCC.into(),
+            TrackKind::Video => HANDLER_TYPE_VIDEO_FOURCC.into(),
+            TrackKind::Audio => HANDLER_TYPE_AUDIO_FOURCC.into(),
+            TrackKind::Subtitle => HANDLER_TYPE_SUBTITLE_FOURCC.into(),
         }
     }
 }

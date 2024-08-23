@@ -1,6 +1,6 @@
-use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use byteorder::{BigEndian, ReadBytesExt, };
 use serde::Serialize;
-use std::io::{Read, Seek, Write};
+use std::io::{Read, Seek, };
 use std::mem::size_of;
 
 use crate::mp4box::*;
@@ -86,58 +86,5 @@ impl<R: Read + Seek> ReadBox<&mut R> for CttsBox {
             flags,
             entries,
         })
-    }
-}
-
-impl<W: Write> WriteBox<&mut W> for CttsBox {
-    fn write_box(&self, writer: &mut W) -> Result<u64> {
-        let size = self.box_size();
-        BoxHeader::new(self.box_type(), size).write(writer)?;
-
-        write_box_header_ext(writer, self.version, self.flags)?;
-
-        writer.write_u32::<BigEndian>(self.entries.len() as u32)?;
-        for entry in self.entries.iter() {
-            writer.write_u32::<BigEndian>(entry.sample_count)?;
-            writer.write_i32::<BigEndian>(entry.sample_offset)?;
-        }
-
-        Ok(size)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::mp4box::BoxHeader;
-    use std::io::Cursor;
-
-    #[test]
-    fn test_ctts() {
-        let src_box = CttsBox {
-            version: 0,
-            flags: 0,
-            entries: vec![
-                CttsEntry {
-                    sample_count: 1,
-                    sample_offset: 200,
-                },
-                CttsEntry {
-                    sample_count: 2,
-                    sample_offset: -100,
-                },
-            ],
-        };
-        let mut buf = Vec::new();
-        src_box.write_box(&mut buf).unwrap();
-        assert_eq!(buf.len(), src_box.box_size() as usize);
-
-        let mut reader = Cursor::new(&buf);
-        let header = BoxHeader::read(&mut reader).unwrap();
-        assert_eq!(header.name, BoxType::CttsBox);
-        assert_eq!(src_box.box_size(), header.size);
-
-        let dst_box = CttsBox::read_box(&mut reader, header.size).unwrap();
-        assert_eq!(src_box, dst_box);
     }
 }

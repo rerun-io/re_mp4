@@ -56,9 +56,9 @@
 //! free
 //!
 
-use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use byteorder::{BigEndian, ReadBytesExt};
 use std::convert::TryInto;
-use std::io::{Read, Seek, SeekFrom, Write};
+use std::io::{Read, Seek, SeekFrom};
 
 use crate::*;
 
@@ -256,10 +256,6 @@ pub trait ReadBox<T>: Sized {
     fn read_box(_: T, size: u64) -> Result<Self>;
 }
 
-pub trait WriteBox<T>: Sized {
-    fn write_box(&self, _: T) -> Result<u64>;
-}
-
 #[derive(Debug, Clone, Copy)]
 pub struct BoxHeader {
     pub name: BoxType,
@@ -309,31 +305,12 @@ impl BoxHeader {
             })
         }
     }
-
-    pub fn write<W: Write>(&self, writer: &mut W) -> Result<u64> {
-        if self.size > u32::MAX as u64 {
-            writer.write_u32::<BigEndian>(1)?;
-            writer.write_u32::<BigEndian>(self.name.into())?;
-            writer.write_u64::<BigEndian>(self.size)?;
-            Ok(16)
-        } else {
-            writer.write_u32::<BigEndian>(self.size as u32)?;
-            writer.write_u32::<BigEndian>(self.name.into())?;
-            Ok(8)
-        }
-    }
 }
 
 pub fn read_box_header_ext<R: Read>(reader: &mut R) -> Result<(u8, u32)> {
     let version = reader.read_u8()?;
     let flags = reader.read_u24::<BigEndian>()?;
     Ok((version, flags))
-}
-
-pub fn write_box_header_ext<W: Write>(w: &mut W, v: u8, f: u32) -> Result<u64> {
-    w.write_u8(v)?;
-    w.write_u24::<BigEndian>(f)?;
-    Ok(4)
 }
 
 pub fn box_start<R: Seek>(seeker: &mut R) -> Result<u64> {
@@ -356,11 +333,18 @@ pub fn skip_box<S: Seek>(seeker: &mut S, size: u64) -> Result<()> {
     Ok(())
 }
 
-pub fn write_zeros<W: Write>(writer: &mut W, size: u64) -> Result<()> {
-    for _ in 0..size {
-        writer.write_u8(0)?;
-    }
-    Ok(())
+pub fn read_box_raw<R: Read + Seek, B: for<'a> ReadBox<&'a mut R>>(
+    reader: &mut R,
+    size: u64,
+) -> Result<(B, Vec<u8>)> {
+    let start = reader.stream_position()?;
+    let contents = B::read_box(reader, size)?;
+    let end = reader.stream_position()?;
+    let len = end - start;
+    let mut raw = vec![0u8; len as usize];
+    reader.seek(SeekFrom::Start(start))?;
+    reader.read_exact(&mut raw[..])?;
+    Ok((contents, raw))
 }
 
 mod value_u32 {

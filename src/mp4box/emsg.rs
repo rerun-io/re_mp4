@@ -1,7 +1,7 @@
 use std::ffi::CStr;
-use std::io::{Read, Seek, Write};
+use std::io::{Read, Seek, };
 
-use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use byteorder::{BigEndian, ReadBytesExt};
 use serde::Serialize;
 
 use crate::mp4box::*;
@@ -120,40 +120,6 @@ impl<R: Read + Seek> ReadBox<&mut R> for EmsgBox {
     }
 }
 
-impl<W: Write> WriteBox<&mut W> for EmsgBox {
-    fn write_box(&self, writer: &mut W) -> Result<u64> {
-        let size = self.box_size();
-        BoxHeader::new(self.box_type(), size).write(writer)?;
-
-        write_box_header_ext(writer, self.version, self.flags)?;
-        match self.version {
-            0 => {
-                write_null_terminated_str(writer, &self.scheme_id_uri)?;
-                write_null_terminated_str(writer, &self.value)?;
-                writer.write_u32::<BigEndian>(self.timescale)?;
-                writer.write_u32::<BigEndian>(self.presentation_time_delta.unwrap())?;
-                writer.write_u32::<BigEndian>(self.event_duration)?;
-                writer.write_u32::<BigEndian>(self.id)?;
-            }
-            1 => {
-                writer.write_u32::<BigEndian>(self.timescale)?;
-                writer.write_u64::<BigEndian>(self.presentation_time.unwrap())?;
-                writer.write_u32::<BigEndian>(self.event_duration)?;
-                writer.write_u32::<BigEndian>(self.id)?;
-                write_null_terminated_str(writer, &self.scheme_id_uri)?;
-                write_null_terminated_str(writer, &self.value)?;
-            }
-            _ => return Err(Error::InvalidData("version must be 0 or 1")),
-        }
-
-        for &byte in &self.message_data {
-            writer.write_u8(byte)?;
-        }
-
-        Ok(size)
-    }
-}
-
 fn read_null_terminated_utf8_string<R: Read + Seek>(reader: &mut R) -> Result<String> {
     let mut bytes = Vec::new();
     loop {
@@ -167,76 +133,5 @@ fn read_null_terminated_utf8_string<R: Read + Seek>(reader: &mut R) -> Result<St
         Ok(str.to_string())
     } else {
         Err(Error::InvalidData("invalid utf8"))
-    }
-}
-
-fn write_null_terminated_str<W: Write>(writer: &mut W, string: &str) -> Result<()> {
-    for byte in string.bytes() {
-        writer.write_u8(byte)?;
-    }
-    writer.write_u8(0)?;
-    Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use std::io::Cursor;
-
-    use crate::mp4box::BoxHeader;
-
-    use super::*;
-
-    #[test]
-    fn test_emsg_version0() {
-        let src_box = EmsgBox {
-            version: 0,
-            flags: 0,
-            timescale: 48000,
-            presentation_time: None,
-            presentation_time_delta: Some(100),
-            event_duration: 200,
-            id: 8,
-            scheme_id_uri: String::from("foo"),
-            value: String::from("foo"),
-            message_data: vec![1, 2, 3],
-        };
-        let mut buf = Vec::new();
-        src_box.write_box(&mut buf).unwrap();
-        assert_eq!(buf.len(), src_box.box_size() as usize);
-
-        let mut reader = Cursor::new(&buf);
-        let header = BoxHeader::read(&mut reader).unwrap();
-        assert_eq!(header.name, BoxType::EmsgBox);
-        assert_eq!(src_box.box_size(), header.size);
-
-        let dst_box = EmsgBox::read_box(&mut reader, header.size).unwrap();
-        assert_eq!(src_box, dst_box);
-    }
-
-    #[test]
-    fn test_emsg_version1() {
-        let src_box = EmsgBox {
-            version: 1,
-            flags: 0,
-            timescale: 48000,
-            presentation_time: Some(50000),
-            presentation_time_delta: None,
-            event_duration: 200,
-            id: 8,
-            scheme_id_uri: String::from("foo"),
-            value: String::from("foo"),
-            message_data: vec![3, 2, 1],
-        };
-        let mut buf = Vec::new();
-        src_box.write_box(&mut buf).unwrap();
-        assert_eq!(buf.len(), src_box.box_size() as usize);
-
-        let mut reader = Cursor::new(&buf);
-        let header = BoxHeader::read(&mut reader).unwrap();
-        assert_eq!(header.name, BoxType::EmsgBox);
-        assert_eq!(src_box.box_size(), header.size);
-
-        let dst_box = EmsgBox::read_box(&mut reader, header.size).unwrap();
-        assert_eq!(src_box, dst_box);
     }
 }

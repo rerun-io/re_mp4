@@ -1,5 +1,5 @@
 use serde::Serialize;
-use std::io::{Read, Seek, Write};
+use std::io::{Read, Seek, };
 
 use crate::mp4box::*;
 use crate::mp4box::{
@@ -159,31 +159,5 @@ impl<R: Read + Seek> ReadBox<&mut R> for StblBox {
             stco,
             co64,
         })
-    }
-}
-
-impl<W: Write> WriteBox<&mut W> for StblBox {
-    fn write_box(&self, writer: &mut W) -> Result<u64> {
-        let size = self.box_size();
-        BoxHeader::new(self.box_type(), size).write(writer)?;
-
-        self.stsd.write_box(writer)?;
-        self.stts.write_box(writer)?;
-        if let Some(ref ctts) = self.ctts {
-            ctts.write_box(writer)?;
-        }
-        if let Some(ref stss) = self.stss {
-            stss.write_box(writer)?;
-        }
-        self.stsc.write_box(writer)?;
-        self.stsz.write_box(writer)?;
-        if let Some(ref stco) = self.stco {
-            stco.write_box(writer)?;
-        }
-        if let Some(ref co64) = self.co64 {
-            co64.write_box(writer)?;
-        }
-
-        Ok(size)
     }
 }

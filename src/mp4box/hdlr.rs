@@ -1,6 +1,6 @@
-use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use byteorder::{BigEndian, ReadBytesExt, };
 use serde::Serialize;
-use std::io::{Read, Seek, Write};
+use std::io::{Read, Seek, };
 
 use crate::mp4box::*;
 
@@ -71,103 +71,5 @@ impl<R: Read + Seek> ReadBox<&mut R> for HdlrBox {
             handler_type: From::from(handler),
             name: handler_string,
         })
-    }
-}
-
-impl<W: Write> WriteBox<&mut W> for HdlrBox {
-    fn write_box(&self, writer: &mut W) -> Result<u64> {
-        let size = self.box_size();
-        BoxHeader::new(self.box_type(), size).write(writer)?;
-
-        write_box_header_ext(writer, self.version, self.flags)?;
-
-        writer.write_u32::<BigEndian>(0)?; // pre-defined
-        writer.write_u32::<BigEndian>((&self.handler_type).into())?;
-
-        // 12 bytes reserved
-        for _ in 0..3 {
-            writer.write_u32::<BigEndian>(0)?;
-        }
-
-        writer.write_all(self.name.as_bytes())?;
-        writer.write_u8(0)?;
-
-        Ok(size)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::mp4box::BoxHeader;
-    use std::io::Cursor;
-
-    #[test]
-    fn test_hdlr() {
-        let src_box = HdlrBox {
-            version: 0,
-            flags: 0,
-            handler_type: str::parse::<FourCC>("vide").unwrap(),
-            name: String::from("VideoHandler"),
-        };
-        let mut buf = Vec::new();
-        src_box.write_box(&mut buf).unwrap();
-        assert_eq!(buf.len(), src_box.box_size() as usize);
-
-        let mut reader = Cursor::new(&buf);
-        let header = BoxHeader::read(&mut reader).unwrap();
-        assert_eq!(header.name, BoxType::HdlrBox);
-        assert_eq!(src_box.box_size(), header.size);
-
-        let dst_box = HdlrBox::read_box(&mut reader, header.size).unwrap();
-        assert_eq!(src_box, dst_box);
-    }
-
-    #[test]
-    fn test_hdlr_empty() {
-        let src_box = HdlrBox {
-            version: 0,
-            flags: 0,
-            handler_type: str::parse::<FourCC>("vide").unwrap(),
-            name: String::new(),
-        };
-        let mut buf = Vec::new();
-        src_box.write_box(&mut buf).unwrap();
-        assert_eq!(buf.len(), src_box.box_size() as usize);
-
-        let mut reader = Cursor::new(&buf);
-        let header = BoxHeader::read(&mut reader).unwrap();
-        assert_eq!(header.name, BoxType::HdlrBox);
-        assert_eq!(src_box.box_size(), header.size);
-
-        let dst_box = HdlrBox::read_box(&mut reader, header.size).unwrap();
-        assert_eq!(src_box, dst_box);
-    }
-
-    #[test]
-    fn test_hdlr_extra() {
-        let real_src_box = HdlrBox {
-            version: 0,
-            flags: 0,
-            handler_type: str::parse::<FourCC>("vide").unwrap(),
-            name: String::from("Good"),
-        };
-        let src_box = HdlrBox {
-            version: 0,
-            flags: 0,
-            handler_type: str::parse::<FourCC>("vide").unwrap(),
-            name: String::from_utf8(b"Good\0Bad".to_vec()).unwrap(),
-        };
-        let mut buf = Vec::new();
-        src_box.write_box(&mut buf).unwrap();
-        assert_eq!(buf.len(), src_box.box_size() as usize);
-
-        let mut reader = Cursor::new(&buf);
-        let header = BoxHeader::read(&mut reader).unwrap();
-        assert_eq!(header.name, BoxType::HdlrBox);
-        assert_eq!(src_box.box_size(), header.size);
-
-        let dst_box = HdlrBox::read_box(&mut reader, header.size).unwrap();
-        assert_eq!(real_src_box, dst_box);
     }
 }

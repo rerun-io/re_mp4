@@ -1,6 +1,6 @@
-use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use byteorder::{BigEndian, ReadBytesExt, };
 use serde::Serialize;
-use std::io::{Read, Seek, Write};
+use std::io::{Read, Seek, };
 
 use crate::mp4box::*;
 
@@ -146,112 +146,5 @@ impl<R: Read + Seek> ReadBox<&mut R> for MvhdBox {
             matrix,
             next_track_id,
         })
-    }
-}
-
-impl<W: Write> WriteBox<&mut W> for MvhdBox {
-    fn write_box(&self, writer: &mut W) -> Result<u64> {
-        let size = self.box_size();
-        BoxHeader::new(self.box_type(), size).write(writer)?;
-
-        write_box_header_ext(writer, self.version, self.flags)?;
-
-        if self.version == 1 {
-            writer.write_u64::<BigEndian>(self.creation_time)?;
-            writer.write_u64::<BigEndian>(self.modification_time)?;
-            writer.write_u32::<BigEndian>(self.timescale)?;
-            writer.write_u64::<BigEndian>(self.duration)?;
-        } else if self.version == 0 {
-            writer.write_u32::<BigEndian>(self.creation_time as u32)?;
-            writer.write_u32::<BigEndian>(self.modification_time as u32)?;
-            writer.write_u32::<BigEndian>(self.timescale)?;
-            writer.write_u32::<BigEndian>(self.duration as u32)?;
-        } else {
-            return Err(Error::InvalidData("version must be 0 or 1"));
-        }
-        writer.write_u32::<BigEndian>(self.rate.raw_value())?;
-
-        writer.write_u16::<BigEndian>(self.volume.raw_value())?;
-
-        writer.write_u16::<BigEndian>(0)?; // reserved = 0
-
-        writer.write_u64::<BigEndian>(0)?; // reserved = 0
-
-        writer.write_i32::<BigEndian>(self.matrix.a)?;
-        writer.write_i32::<BigEndian>(self.matrix.b)?;
-        writer.write_i32::<BigEndian>(self.matrix.u)?;
-        writer.write_i32::<BigEndian>(self.matrix.c)?;
-        writer.write_i32::<BigEndian>(self.matrix.d)?;
-        writer.write_i32::<BigEndian>(self.matrix.v)?;
-        writer.write_i32::<BigEndian>(self.matrix.x)?;
-        writer.write_i32::<BigEndian>(self.matrix.y)?;
-        writer.write_i32::<BigEndian>(self.matrix.w)?;
-
-        write_zeros(writer, 24)?; // pre_defined = 0
-
-        writer.write_u32::<BigEndian>(self.next_track_id)?;
-
-        Ok(size)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::mp4box::BoxHeader;
-    use std::io::Cursor;
-
-    #[test]
-    fn test_mvhd32() {
-        let src_box = MvhdBox {
-            version: 0,
-            flags: 0,
-            creation_time: 100,
-            modification_time: 200,
-            timescale: 1000,
-            duration: 634634,
-            rate: FixedPointU16::new(1),
-            volume: FixedPointU8::new(1),
-            matrix: tkhd::Matrix::default(),
-            next_track_id: 1,
-        };
-        let mut buf = Vec::new();
-        src_box.write_box(&mut buf).unwrap();
-        assert_eq!(buf.len(), src_box.box_size() as usize);
-
-        let mut reader = Cursor::new(&buf);
-        let header = BoxHeader::read(&mut reader).unwrap();
-        assert_eq!(header.name, BoxType::MvhdBox);
-        assert_eq!(src_box.box_size(), header.size);
-
-        let dst_box = MvhdBox::read_box(&mut reader, header.size).unwrap();
-        assert_eq!(src_box, dst_box);
-    }
-
-    #[test]
-    fn test_mvhd64() {
-        let src_box = MvhdBox {
-            version: 1,
-            flags: 0,
-            creation_time: 100,
-            modification_time: 200,
-            timescale: 1000,
-            duration: 634634,
-            rate: FixedPointU16::new(1),
-            volume: FixedPointU8::new(1),
-            matrix: tkhd::Matrix::default(),
-            next_track_id: 1,
-        };
-        let mut buf = Vec::new();
-        src_box.write_box(&mut buf).unwrap();
-        assert_eq!(buf.len(), src_box.box_size() as usize);
-
-        let mut reader = Cursor::new(&buf);
-        let header = BoxHeader::read(&mut reader).unwrap();
-        assert_eq!(header.name, BoxType::MvhdBox);
-        assert_eq!(src_box.box_size(), header.size);
-
-        let dst_box = MvhdBox::read_box(&mut reader, header.size).unwrap();
-        assert_eq!(src_box, dst_box);
     }
 }

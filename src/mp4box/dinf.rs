@@ -1,5 +1,5 @@
 use serde::Serialize;
-use std::io::{Read, Seek, Write};
+use std::io::{Read, Seek, };
 
 use crate::mp4box::*;
 
@@ -77,15 +77,6 @@ impl<R: Read + Seek> ReadBox<&mut R> for DinfBox {
         Ok(DinfBox {
             dref: dref.unwrap(),
         })
-    }
-}
-
-impl<W: Write> WriteBox<&mut W> for DinfBox {
-    fn write_box(&self, writer: &mut W) -> Result<u64> {
-        let size = self.box_size();
-        BoxHeader::new(self.box_type(), size).write(writer)?;
-        self.dref.write_box(writer)?;
-        Ok(size)
     }
 }
 
@@ -189,23 +180,6 @@ impl<R: Read + Seek> ReadBox<&mut R> for DrefBox {
     }
 }
 
-impl<W: Write> WriteBox<&mut W> for DrefBox {
-    fn write_box(&self, writer: &mut W) -> Result<u64> {
-        let size = self.box_size();
-        BoxHeader::new(self.box_type(), size).write(writer)?;
-
-        write_box_header_ext(writer, self.version, self.flags)?;
-
-        writer.write_u32::<BigEndian>(1)?;
-
-        if let Some(ref url) = self.url {
-            url.write_box(writer)?;
-        }
-
-        Ok(size)
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct UrlBox {
     pub version: u8,
@@ -282,21 +256,5 @@ impl<R: Read + Seek> ReadBox<&mut R> for UrlBox {
             flags,
             location,
         })
-    }
-}
-
-impl<W: Write> WriteBox<&mut W> for UrlBox {
-    fn write_box(&self, writer: &mut W) -> Result<u64> {
-        let size = self.box_size();
-        BoxHeader::new(self.box_type(), size).write(writer)?;
-
-        write_box_header_ext(writer, self.version, self.flags)?;
-
-        if !self.location.is_empty() {
-            writer.write_all(self.location.as_bytes())?;
-            writer.write_u8(0)?;
-        }
-
-        Ok(size)
     }
 }

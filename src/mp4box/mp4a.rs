@@ -1,6 +1,6 @@
-use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use byteorder::{BigEndian, ReadBytesExt};
 use serde::Serialize;
-use std::io::{Read, Seek, Write};
+use std::io::{Read, Seek};
 
 use crate::mp4box::*;
 
@@ -135,29 +135,6 @@ impl<R: Read + Seek> ReadBox<&mut R> for Mp4aBox {
     }
 }
 
-impl<W: Write> WriteBox<&mut W> for Mp4aBox {
-    fn write_box(&self, writer: &mut W) -> Result<u64> {
-        let size = self.box_size();
-        BoxHeader::new(self.box_type(), size).write(writer)?;
-
-        writer.write_u32::<BigEndian>(0)?; // reserved
-        writer.write_u16::<BigEndian>(0)?; // reserved
-        writer.write_u16::<BigEndian>(self.data_reference_index)?;
-
-        writer.write_u64::<BigEndian>(0)?; // reserved
-        writer.write_u16::<BigEndian>(self.channelcount)?;
-        writer.write_u16::<BigEndian>(self.samplesize)?;
-        writer.write_u32::<BigEndian>(0)?; // reserved
-        writer.write_u32::<BigEndian>(self.samplerate.raw_value())?;
-
-        if let Some(ref esds) = self.esds {
-            esds.write_box(writer)?;
-        }
-
-        Ok(size)
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
 pub struct EsdsBox {
     pub version: u8,
@@ -232,19 +209,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for EsdsBox {
     }
 }
 
-impl<W: Write> WriteBox<&mut W> for EsdsBox {
-    fn write_box(&self, writer: &mut W) -> Result<u64> {
-        let size = self.box_size();
-        BoxHeader::new(self.box_type(), size).write(writer)?;
-
-        write_box_header_ext(writer, self.version, self.flags)?;
-
-        self.es_desc.write_desc(writer)?;
-
-        Ok(size)
-    }
-}
-
+#[allow(dead_code)]
 trait Descriptor: Sized {
     fn desc_tag() -> u8;
     fn desc_size() -> u32;
@@ -252,10 +217,6 @@ trait Descriptor: Sized {
 
 trait ReadDesc<T>: Sized {
     fn read_desc(_: T, size: u32) -> Result<Self>;
-}
-
-trait WriteDesc<T>: Sized {
-    fn write_desc(&self, _: T) -> Result<u32>;
 }
 
 fn read_desc<R: Read>(reader: &mut R) -> Result<(u8, u32)> {
@@ -280,26 +241,6 @@ fn size_of_length(size: u32) -> u32 {
         0x4000..=0x1FFFFF => 3,
         _ => 4,
     }
-}
-
-fn write_desc<W: Write>(writer: &mut W, tag: u8, size: u32) -> Result<u64> {
-    writer.write_u8(tag)?;
-
-    if size as u64 > u32::MAX as u64 {
-        return Err(Error::InvalidData("invalid descriptor length range"));
-    }
-
-    let nbytes = size_of_length(size);
-
-    for i in 0..nbytes {
-        let mut b = (size >> ((nbytes - i - 1) * 7)) as u8 & 0x7F;
-        if i < nbytes - 1 {
-            b |= 0x80;
-        }
-        writer.write_u8(b)?;
-    }
-
-    Ok(1 + nbytes as u64)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
@@ -368,21 +309,6 @@ impl<R: Read + Seek> ReadDesc<&mut R> for ESDescriptor {
             dec_config: dec_config.unwrap_or_default(),
             sl_config: sl_config.unwrap_or_default(),
         })
-    }
-}
-
-impl<W: Write> WriteDesc<&mut W> for ESDescriptor {
-    fn write_desc(&self, writer: &mut W) -> Result<u32> {
-        let size = Self::desc_size();
-        write_desc(writer, Self::desc_tag(), size)?;
-
-        writer.write_u16::<BigEndian>(self.es_id)?;
-        writer.write_u8(0)?;
-
-        self.dec_config.write_desc(writer)?;
-        self.sl_config.write_desc(writer)?;
-
-        Ok(size)
     }
 }
 
@@ -462,23 +388,6 @@ impl<R: Read + Seek> ReadDesc<&mut R> for DecoderConfigDescriptor {
             avg_bitrate,
             dec_specific: dec_specific.unwrap_or_default(),
         })
-    }
-}
-
-impl<W: Write> WriteDesc<&mut W> for DecoderConfigDescriptor {
-    fn write_desc(&self, writer: &mut W) -> Result<u32> {
-        let size = Self::desc_size();
-        write_desc(writer, Self::desc_tag(), size)?;
-
-        writer.write_u8(self.object_type_indication)?;
-        writer.write_u8((self.stream_type << 2) + (self.up_stream & 0x02) + 1)?; // 1 reserved
-        writer.write_u24::<BigEndian>(self.buffer_size_db)?;
-        writer.write_u32::<BigEndian>(self.max_bitrate)?;
-        writer.write_u32::<BigEndian>(self.avg_bitrate)?;
-
-        self.dec_specific.write_desc(writer)?;
-
-        Ok(size)
     }
 }
 
@@ -562,18 +471,6 @@ impl<R: Read + Seek> ReadDesc<&mut R> for DecoderSpecificDescriptor {
     }
 }
 
-impl<W: Write> WriteDesc<&mut W> for DecoderSpecificDescriptor {
-    fn write_desc(&self, writer: &mut W) -> Result<u32> {
-        let size = Self::desc_size();
-        write_desc(writer, Self::desc_tag(), size)?;
-
-        writer.write_u8((self.profile << 3) + (self.freq_index >> 1))?;
-        writer.write_u8((self.freq_index << 7) + (self.chan_conf << 3))?;
-
-        Ok(size)
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
 pub struct SLConfigDescriptor {}
 
@@ -598,86 +495,5 @@ impl<R: Read + Seek> ReadDesc<&mut R> for SLConfigDescriptor {
         reader.read_u8()?; // pre-defined
 
         Ok(SLConfigDescriptor {})
-    }
-}
-
-impl<W: Write> WriteDesc<&mut W> for SLConfigDescriptor {
-    fn write_desc(&self, writer: &mut W) -> Result<u32> {
-        let size = Self::desc_size();
-        write_desc(writer, Self::desc_tag(), size)?;
-
-        writer.write_u8(2)?; // pre-defined
-        Ok(size)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::mp4box::BoxHeader;
-    use std::io::Cursor;
-
-    #[test]
-    fn test_mp4a() {
-        let src_box = Mp4aBox {
-            data_reference_index: 1,
-            channelcount: 2,
-            samplesize: 16,
-            samplerate: FixedPointU16::new(48000),
-            esds: Some(EsdsBox {
-                version: 0,
-                flags: 0,
-                es_desc: ESDescriptor {
-                    es_id: 2,
-                    dec_config: DecoderConfigDescriptor {
-                        object_type_indication: 0x40,
-                        stream_type: 0x05,
-                        up_stream: 0,
-                        buffer_size_db: 0,
-                        max_bitrate: 67695,
-                        avg_bitrate: 67695,
-                        dec_specific: DecoderSpecificDescriptor {
-                            profile: 2,
-                            freq_index: 3,
-                            chan_conf: 1,
-                        },
-                    },
-                    sl_config: SLConfigDescriptor::default(),
-                },
-            }),
-        };
-        let mut buf = Vec::new();
-        src_box.write_box(&mut buf).unwrap();
-        assert_eq!(buf.len(), src_box.box_size() as usize);
-
-        let mut reader = Cursor::new(&buf);
-        let header = BoxHeader::read(&mut reader).unwrap();
-        assert_eq!(header.name, BoxType::Mp4aBox);
-        assert_eq!(src_box.box_size(), header.size);
-
-        let dst_box = Mp4aBox::read_box(&mut reader, header.size).unwrap();
-        assert_eq!(src_box, dst_box);
-    }
-
-    #[test]
-    fn test_mp4a_no_esds() {
-        let src_box = Mp4aBox {
-            data_reference_index: 1,
-            channelcount: 2,
-            samplesize: 16,
-            samplerate: FixedPointU16::new(48000),
-            esds: None,
-        };
-        let mut buf = Vec::new();
-        src_box.write_box(&mut buf).unwrap();
-        assert_eq!(buf.len(), src_box.box_size() as usize);
-
-        let mut reader = Cursor::new(&buf);
-        let header = BoxHeader::read(&mut reader).unwrap();
-        assert_eq!(header.name, BoxType::Mp4aBox);
-        assert_eq!(src_box.box_size(), header.size);
-
-        let dst_box = Mp4aBox::read_box(&mut reader, header.size).unwrap();
-        assert_eq!(src_box, dst_box);
     }
 }

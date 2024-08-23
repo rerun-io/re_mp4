@@ -1,5 +1,5 @@
 use serde::Serialize;
-use std::io::{Read, Seek, Write};
+use std::io::{Read, Seek, };
 
 use crate::mp4box::*;
 use crate::mp4box::{dinf::DinfBox, smhd::SmhdBox, stbl::StblBox, vmhd::VmhdBox};
@@ -112,23 +112,5 @@ impl<R: Read + Seek> ReadBox<&mut R> for MinfBox {
             dinf: dinf.unwrap(),
             stbl: stbl.unwrap(),
         })
-    }
-}
-
-impl<W: Write> WriteBox<&mut W> for MinfBox {
-    fn write_box(&self, writer: &mut W) -> Result<u64> {
-        let size = self.box_size();
-        BoxHeader::new(self.box_type(), size).write(writer)?;
-
-        if let Some(ref vmhd) = self.vmhd {
-            vmhd.write_box(writer)?;
-        }
-        if let Some(ref smhd) = self.smhd {
-            smhd.write_box(writer)?;
-        }
-        self.dinf.write_box(writer)?;
-        self.stbl.write_box(writer)?;
-
-        Ok(size)
     }
 }

@@ -1,6 +1,6 @@
-use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use byteorder::{BigEndian, ReadBytesExt};
 use serde::Serialize;
-use std::io::{Read, Seek, Write};
+use std::io::{Read, Seek};
 
 use crate::mp4box::vp09::Vp09Box;
 use crate::mp4box::*;
@@ -11,26 +11,45 @@ pub struct StsdBox {
     pub version: u8,
     pub flags: u32,
 
+    /// AV1 video codec
     #[serde(skip_serializing_if = "Option::is_none")]
     pub av01: Option<Av01Box>,
 
+    /// AVC video codec (h.264)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub avc1: Option<Avc1Box>,
 
+    /// HEVC video codec (h.265)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hev1: Option<Hev1Box>,
 
+    /// VP9 video codec
     #[serde(skip_serializing_if = "Option::is_none")]
     pub vp09: Option<Vp09Box>,
 
+    /// AAC audio codec
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mp4a: Option<Mp4aBox>,
 
+    /// TTXT subtitle codec
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tx3g: Option<Tx3gBox>,
 }
 
 impl StsdBox {
+    pub fn kind(&self) -> TrackKind {
+        if self.av01.is_some() || self.avc1.is_some() || self.hev1.is_some() || self.vp09.is_some()
+        {
+            TrackKind::Video
+        } else if self.mp4a.is_some() {
+            TrackKind::Audio
+        } else if self.tx3g.is_some() {
+            TrackKind::Subtitle
+        } else {
+            panic!()
+        }
+    }
+
     pub fn get_type(&self) -> BoxType {
         BoxType::StsdBox
     }
@@ -131,32 +150,5 @@ impl<R: Read + Seek> ReadBox<&mut R> for StsdBox {
             mp4a,
             tx3g,
         })
-    }
-}
-
-impl<W: Write> WriteBox<&mut W> for StsdBox {
-    fn write_box(&self, writer: &mut W) -> Result<u64> {
-        let size = self.box_size();
-        BoxHeader::new(self.box_type(), size).write(writer)?;
-
-        write_box_header_ext(writer, self.version, self.flags)?;
-
-        writer.write_u32::<BigEndian>(1)?; // entry_count
-
-        if let Some(ref av01) = self.av01 {
-            av01.write_box(writer)?;
-        } else if let Some(ref avc1) = self.avc1 {
-            avc1.write_box(writer)?;
-        } else if let Some(ref hev1) = self.hev1 {
-            hev1.write_box(writer)?;
-        } else if let Some(ref vp09) = self.vp09 {
-            vp09.write_box(writer)?;
-        } else if let Some(ref mp4a) = self.mp4a {
-            mp4a.write_box(writer)?;
-        } else if let Some(ref tx3g) = self.tx3g {
-            tx3g.write_box(writer)?;
-        }
-
-        Ok(size)
     }
 }

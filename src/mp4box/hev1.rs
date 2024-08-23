@@ -1,6 +1,6 @@
-use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use byteorder::{BigEndian, ReadBytesExt, };
 use serde::Serialize;
-use std::io::{Read, Seek, Write};
+use std::io::{Read, Seek, };
 
 use crate::mp4box::*;
 
@@ -126,35 +126,6 @@ impl<R: Read + Seek> ReadBox<&mut R> for Hev1Box {
         } else {
             Err(Error::InvalidData("hvcc not found"))
         }
-    }
-}
-
-impl<W: Write> WriteBox<&mut W> for Hev1Box {
-    fn write_box(&self, writer: &mut W) -> Result<u64> {
-        let size = self.box_size();
-        BoxHeader::new(self.box_type(), size).write(writer)?;
-
-        writer.write_u32::<BigEndian>(0)?; // reserved
-        writer.write_u16::<BigEndian>(0)?; // reserved
-        writer.write_u16::<BigEndian>(self.data_reference_index)?;
-
-        writer.write_u32::<BigEndian>(0)?; // pre-defined, reserved
-        writer.write_u64::<BigEndian>(0)?; // pre-defined
-        writer.write_u32::<BigEndian>(0)?; // pre-defined
-        writer.write_u16::<BigEndian>(self.width)?;
-        writer.write_u16::<BigEndian>(self.height)?;
-        writer.write_u32::<BigEndian>(self.horizresolution.raw_value())?;
-        writer.write_u32::<BigEndian>(self.vertresolution.raw_value())?;
-        writer.write_u32::<BigEndian>(0)?; // reserved
-        writer.write_u16::<BigEndian>(self.frame_count)?;
-        // skip compressorname
-        write_zeros(writer, 32)?;
-        writer.write_u16::<BigEndian>(self.depth)?;
-        writer.write_i16::<BigEndian>(-1)?; // pre-defined
-
-        self.hvcc.write_box(writer)?;
-
-        Ok(size)
     }
 }
 
@@ -312,84 +283,5 @@ impl<R: Read + Seek> ReadBox<&mut R> for HvcCBox {
             length_size_minus_one,
             arrays,
         })
-    }
-}
-
-impl<W: Write> WriteBox<&mut W> for HvcCBox {
-    fn write_box(&self, writer: &mut W) -> Result<u64> {
-        let size = self.box_size();
-        BoxHeader::new(self.box_type(), size).write(writer)?;
-
-        writer.write_u8(self.configuration_version)?;
-        let general_profile_space = (self.general_profile_space & 0b11) << 6;
-        let general_tier_flag = u8::from(self.general_tier_flag) << 5;
-        let general_profile_idc = self.general_profile_idc & 0b11111;
-
-        writer.write_u8(general_profile_space | general_tier_flag | general_profile_idc)?;
-        writer.write_u32::<BigEndian>(self.general_profile_compatibility_flags)?;
-        writer.write_u48::<BigEndian>(self.general_constraint_indicator_flag)?;
-        writer.write_u8(self.general_level_idc)?;
-
-        writer.write_u16::<BigEndian>(self.min_spatial_segmentation_idc & 0x0FFF)?;
-        writer.write_u8(self.parallelism_type & 0b11)?;
-        writer.write_u8(self.chroma_format_idc & 0b11)?;
-        writer.write_u8(self.bit_depth_luma_minus8 & 0b111)?;
-        writer.write_u8(self.bit_depth_chroma_minus8 & 0b111)?;
-        writer.write_u16::<BigEndian>(self.avg_frame_rate)?;
-
-        let constant_frame_rate = (self.constant_frame_rate & 0b11) << 6;
-        let num_temporal_layers = (self.num_temporal_layers & 0b111) << 3;
-        let temporal_id_nested = u8::from(self.temporal_id_nested) << 2;
-        let length_size_minus_one = self.length_size_minus_one & 0b11;
-        writer.write_u8(
-            constant_frame_rate | num_temporal_layers | temporal_id_nested | length_size_minus_one,
-        )?;
-        writer.write_u8(self.arrays.len() as u8)?;
-        for arr in &self.arrays {
-            writer.write_u8((arr.nal_unit_type & 0b111111) | u8::from(arr.completeness) << 7)?;
-            writer.write_u16::<BigEndian>(arr.nalus.len() as _)?;
-
-            for nalu in &arr.nalus {
-                writer.write_u16::<BigEndian>(nalu.size)?;
-                writer.write_all(&nalu.data)?;
-            }
-        }
-
-        Ok(size)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::mp4box::BoxHeader;
-    use std::io::Cursor;
-
-    #[test]
-    fn test_hev1() {
-        let src_box = Hev1Box {
-            data_reference_index: 1,
-            width: 320,
-            height: 240,
-            horizresolution: FixedPointU16::new(0x48),
-            vertresolution: FixedPointU16::new(0x48),
-            frame_count: 1,
-            depth: 24,
-            hvcc: HvcCBox {
-                configuration_version: 1,
-                ..Default::default()
-            },
-        };
-        let mut buf = Vec::new();
-        src_box.write_box(&mut buf).unwrap();
-        assert_eq!(buf.len(), src_box.box_size() as usize);
-
-        let mut reader = Cursor::new(&buf);
-        let header = BoxHeader::read(&mut reader).unwrap();
-        assert_eq!(header.name, BoxType::Hev1Box);
-        assert_eq!(src_box.box_size(), header.size);
-
-        let dst_box = Hev1Box::read_box(&mut reader, header.size).unwrap();
-        assert_eq!(src_box, dst_box);
     }
 }

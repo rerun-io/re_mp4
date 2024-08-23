@@ -1,5 +1,5 @@
 use serde::Serialize;
-use std::io::{Read, Seek, Write};
+use std::io::{Read, Seek};
 
 use crate::mp4box::*;
 use crate::mp4box::{tfdt::TfdtBox, tfhd::TfhdBox, trun::TrunBox};
@@ -8,7 +8,7 @@ use crate::mp4box::{tfdt::TfdtBox, tfhd::TfhdBox, trun::TrunBox};
 pub struct TrafBox {
     pub tfhd: TfhdBox,
     pub tfdt: Option<TfdtBox>,
-    pub trun: Option<TrunBox>,
+    pub truns: Vec<TrunBox>,
 }
 
 impl TrafBox {
@@ -22,7 +22,7 @@ impl TrafBox {
         if let Some(ref tfdt) = self.tfdt {
             size += tfdt.box_size();
         }
-        if let Some(ref trun) = self.trun {
+        for trun in &self.truns {
             size += trun.box_size();
         }
         size
@@ -54,7 +54,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for TrafBox {
 
         let mut tfhd = None;
         let mut tfdt = None;
-        let mut trun = None;
+        let mut truns = Vec::new();
 
         let mut current = reader.stream_position()?;
         let end = start + size;
@@ -76,7 +76,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for TrafBox {
                     tfdt = Some(TfdtBox::read_box(reader, s)?);
                 }
                 BoxType::TrunBox => {
-                    trun = Some(TrunBox::read_box(reader, s)?);
+                    truns.push(TrunBox::read_box(reader, s)?);
                 }
                 _ => {
                     // XXX warn!()
@@ -96,24 +96,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for TrafBox {
         Ok(TrafBox {
             tfhd: tfhd.unwrap(),
             tfdt,
-            trun,
+            truns,
         })
-    }
-}
-
-impl<W: Write> WriteBox<&mut W> for TrafBox {
-    fn write_box(&self, writer: &mut W) -> Result<u64> {
-        let size = self.box_size();
-        BoxHeader::new(self.box_type(), size).write(writer)?;
-
-        self.tfhd.write_box(writer)?;
-        if let Some(ref tfdt) = self.tfdt {
-            tfdt.write_box(writer)?;
-        }
-        if let Some(ref trun) = self.trun {
-            trun.write_box(writer)?;
-        }
-
-        Ok(size)
     }
 }

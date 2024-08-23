@@ -1,6 +1,6 @@
-use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use byteorder::{BigEndian, ReadBytesExt, };
 use serde::Serialize;
-use std::io::{Read, Seek, Write};
+use std::io::{Read, Seek, };
 
 use crate::mp4box::*;
 
@@ -123,67 +123,5 @@ impl<R: Read + Seek> ReadBox<&mut R> for Tx3gBox {
             box_record,
             style_record,
         })
-    }
-}
-
-impl<W: Write> WriteBox<&mut W> for Tx3gBox {
-    fn write_box(&self, writer: &mut W) -> Result<u64> {
-        let size = self.box_size();
-        BoxHeader::new(self.box_type(), size).write(writer)?;
-
-        writer.write_u32::<BigEndian>(0)?; // reserved
-        writer.write_u16::<BigEndian>(0)?; // reserved
-        writer.write_u16::<BigEndian>(self.data_reference_index)?;
-        writer.write_u32::<BigEndian>(self.display_flags)?;
-        writer.write_i8(self.horizontal_justification)?;
-        writer.write_i8(self.vertical_justification)?;
-        writer.write_u8(self.bg_color_rgba.red)?;
-        writer.write_u8(self.bg_color_rgba.green)?;
-        writer.write_u8(self.bg_color_rgba.blue)?;
-        writer.write_u8(self.bg_color_rgba.alpha)?;
-        for n in 0..4 {
-            writer.write_i16::<BigEndian>(self.box_record[n])?;
-        }
-        for n in 0..12 {
-            writer.write_u8(self.style_record[n])?;
-        }
-
-        Ok(size)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::mp4box::BoxHeader;
-    use std::io::Cursor;
-
-    #[test]
-    fn test_tx3g() {
-        let src_box = Tx3gBox {
-            data_reference_index: 1,
-            display_flags: 0,
-            horizontal_justification: 1,
-            vertical_justification: -1,
-            bg_color_rgba: RgbaColor {
-                red: 0,
-                green: 0,
-                blue: 0,
-                alpha: 255,
-            },
-            box_record: [0, 0, 0, 0],
-            style_record: [0, 0, 0, 0, 0, 1, 0, 16, 255, 255, 255, 255],
-        };
-        let mut buf = Vec::new();
-        src_box.write_box(&mut buf).unwrap();
-        assert_eq!(buf.len(), src_box.box_size() as usize);
-
-        let mut reader = Cursor::new(&buf);
-        let header = BoxHeader::read(&mut reader).unwrap();
-        assert_eq!(header.name, BoxType::Tx3gBox);
-        assert_eq!(src_box.box_size(), header.size);
-
-        let dst_box = Tx3gBox::read_box(&mut reader, header.size).unwrap();
-        assert_eq!(src_box, dst_box);
     }
 }

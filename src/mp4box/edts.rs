@@ -1,5 +1,5 @@
 use serde::Serialize;
-use std::io::{Read, Seek, Write};
+use std::io::{Read, Seek, };
 
 use crate::mp4box::elst::ElstBox;
 use crate::mp4box::*;
@@ -68,18 +68,5 @@ impl<R: Read + Seek> ReadBox<&mut R> for EdtsBox {
         skip_bytes_to(reader, start + size)?;
 
         Ok(edts)
-    }
-}
-
-impl<W: Write> WriteBox<&mut W> for EdtsBox {
-    fn write_box(&self, writer: &mut W) -> Result<u64> {
-        let size = self.box_size();
-        BoxHeader::new(self.box_type(), size).write(writer)?;
-
-        if let Some(ref elst) = self.elst {
-            elst.write_box(writer)?;
-        }
-
-        Ok(size)
     }
 }

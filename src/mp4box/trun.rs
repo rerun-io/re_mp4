@@ -1,6 +1,6 @@
-use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use byteorder::{BigEndian, ReadBytesExt, };
 use serde::Serialize;
-use std::io::{Read, Seek, Write};
+use std::io::{Read, Seek, };
 use std::mem::size_of;
 
 use crate::mp4box::*;
@@ -168,103 +168,5 @@ impl<R: Read + Seek> ReadBox<&mut R> for TrunBox {
             sample_flags,
             sample_cts,
         })
-    }
-}
-
-impl<W: Write> WriteBox<&mut W> for TrunBox {
-    fn write_box(&self, writer: &mut W) -> Result<u64> {
-        let size = self.box_size();
-        BoxHeader::new(self.box_type(), size).write(writer)?;
-
-        write_box_header_ext(writer, self.version, self.flags)?;
-
-        writer.write_u32::<BigEndian>(self.sample_count)?;
-        if let Some(v) = self.data_offset {
-            writer.write_i32::<BigEndian>(v)?;
-        }
-        if let Some(v) = self.first_sample_flags {
-            writer.write_u32::<BigEndian>(v)?;
-        }
-        if self.sample_count != self.sample_sizes.len() as u32 {
-            return Err(Error::InvalidData("sample count out of sync"));
-        }
-        for i in 0..self.sample_count as usize {
-            if TrunBox::FLAG_SAMPLE_DURATION & self.flags > 0 {
-                writer.write_u32::<BigEndian>(self.sample_durations[i])?;
-            }
-            if TrunBox::FLAG_SAMPLE_SIZE & self.flags > 0 {
-                writer.write_u32::<BigEndian>(self.sample_sizes[i])?;
-            }
-            if TrunBox::FLAG_SAMPLE_FLAGS & self.flags > 0 {
-                writer.write_u32::<BigEndian>(self.sample_flags[i])?;
-            }
-            if TrunBox::FLAG_SAMPLE_CTS & self.flags > 0 {
-                writer.write_u32::<BigEndian>(self.sample_cts[i])?;
-            }
-        }
-
-        Ok(size)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::mp4box::BoxHeader;
-    use std::io::Cursor;
-
-    #[test]
-    fn test_trun_same_size() {
-        let src_box = TrunBox {
-            version: 0,
-            flags: 0,
-            data_offset: None,
-            sample_count: 0,
-            sample_sizes: vec![],
-            sample_flags: vec![],
-            first_sample_flags: None,
-            sample_durations: vec![],
-            sample_cts: vec![],
-        };
-        let mut buf = Vec::new();
-        src_box.write_box(&mut buf).unwrap();
-        assert_eq!(buf.len(), src_box.box_size() as usize);
-
-        let mut reader = Cursor::new(&buf);
-        let header = BoxHeader::read(&mut reader).unwrap();
-        assert_eq!(header.name, BoxType::TrunBox);
-        assert_eq!(src_box.box_size(), header.size);
-
-        let dst_box = TrunBox::read_box(&mut reader, header.size).unwrap();
-        assert_eq!(src_box, dst_box);
-    }
-
-    #[test]
-    fn test_trun_many_sizes() {
-        let src_box = TrunBox {
-            version: 0,
-            flags: TrunBox::FLAG_SAMPLE_DURATION
-                | TrunBox::FLAG_SAMPLE_SIZE
-                | TrunBox::FLAG_SAMPLE_FLAGS
-                | TrunBox::FLAG_SAMPLE_CTS,
-            data_offset: None,
-            sample_count: 9,
-            sample_sizes: vec![1165, 11, 11, 8545, 10126, 10866, 9643, 9351, 7730],
-            sample_flags: vec![1165, 11, 11, 8545, 10126, 10866, 9643, 9351, 7730],
-            first_sample_flags: None,
-            sample_durations: vec![1165, 11, 11, 8545, 10126, 10866, 9643, 9351, 7730],
-            sample_cts: vec![1165, 11, 11, 8545, 10126, 10866, 9643, 9351, 7730],
-        };
-        let mut buf = Vec::new();
-        src_box.write_box(&mut buf).unwrap();
-        assert_eq!(buf.len(), src_box.box_size() as usize);
-
-        let mut reader = Cursor::new(&buf);
-        let header = BoxHeader::read(&mut reader).unwrap();
-        assert_eq!(header.name, BoxType::TrunBox);
-        assert_eq!(src_box.box_size(), header.size);
-
-        let dst_box = TrunBox::read_box(&mut reader, header.size).unwrap();
-        assert_eq!(src_box, dst_box);
     }
 }

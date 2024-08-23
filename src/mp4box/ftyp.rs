@@ -1,6 +1,6 @@
-use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use byteorder::{BigEndian, ReadBytesExt, };
 use serde::Serialize;
-use std::io::{Read, Seek, Write};
+use std::io::{Read, Seek, };
 
 use crate::mp4box::*;
 
@@ -73,51 +73,5 @@ impl<R: Read + Seek> ReadBox<&mut R> for FtypBox {
             minor_version: minor,
             compatible_brands: brands,
         })
-    }
-}
-
-impl<W: Write> WriteBox<&mut W> for FtypBox {
-    fn write_box(&self, writer: &mut W) -> Result<u64> {
-        let size = self.box_size();
-        BoxHeader::new(self.box_type(), size).write(writer)?;
-
-        writer.write_u32::<BigEndian>((&self.major_brand).into())?;
-        writer.write_u32::<BigEndian>(self.minor_version)?;
-        for b in self.compatible_brands.iter() {
-            writer.write_u32::<BigEndian>(b.into())?;
-        }
-        Ok(size)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::mp4box::BoxHeader;
-    use std::io::Cursor;
-
-    #[test]
-    fn test_ftyp() {
-        let src_box = FtypBox {
-            major_brand: str::parse("isom").unwrap(),
-            minor_version: 0,
-            compatible_brands: vec![
-                str::parse("isom").unwrap(),
-                str::parse("iso2").unwrap(),
-                str::parse("avc1").unwrap(),
-                str::parse("mp41").unwrap(),
-            ],
-        };
-        let mut buf = Vec::new();
-        src_box.write_box(&mut buf).unwrap();
-        assert_eq!(buf.len(), src_box.box_size() as usize);
-
-        let mut reader = Cursor::new(&buf);
-        let header = BoxHeader::read(&mut reader).unwrap();
-        assert_eq!(header.name, BoxType::FtypBox);
-        assert_eq!(src_box.box_size(), header.size);
-
-        let dst_box = FtypBox::read_box(&mut reader, header.size).unwrap();
-        assert_eq!(src_box, dst_box);
     }
 }

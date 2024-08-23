@@ -1,6 +1,6 @@
-use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use byteorder::{BigEndian, ReadBytesExt, };
 use serde::Serialize;
-use std::io::{Read, Seek, Write};
+use std::io::{Read, Seek, };
 
 use crate::mp4box::*;
 
@@ -113,91 +113,5 @@ impl<R: Read + Seek> ReadBox<&mut R> for TfhdBox {
             default_sample_size,
             default_sample_flags,
         })
-    }
-}
-
-impl<W: Write> WriteBox<&mut W> for TfhdBox {
-    fn write_box(&self, writer: &mut W) -> Result<u64> {
-        let size = self.box_size();
-        BoxHeader::new(self.box_type(), size).write(writer)?;
-
-        write_box_header_ext(writer, self.version, self.flags)?;
-        writer.write_u32::<BigEndian>(self.track_id)?;
-        if let Some(base_data_offset) = self.base_data_offset {
-            writer.write_u64::<BigEndian>(base_data_offset)?;
-        }
-        if let Some(sample_description_index) = self.sample_description_index {
-            writer.write_u32::<BigEndian>(sample_description_index)?;
-        }
-        if let Some(default_sample_duration) = self.default_sample_duration {
-            writer.write_u32::<BigEndian>(default_sample_duration)?;
-        }
-        if let Some(default_sample_size) = self.default_sample_size {
-            writer.write_u32::<BigEndian>(default_sample_size)?;
-        }
-        if let Some(default_sample_flags) = self.default_sample_flags {
-            writer.write_u32::<BigEndian>(default_sample_flags)?;
-        }
-
-        Ok(size)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::mp4box::BoxHeader;
-    use std::io::Cursor;
-
-    #[test]
-    fn test_tfhd() {
-        let src_box = TfhdBox {
-            version: 0,
-            flags: 0,
-            track_id: 1,
-            base_data_offset: None,
-            sample_description_index: None,
-            default_sample_duration: None,
-            default_sample_size: None,
-            default_sample_flags: None,
-        };
-        let mut buf = Vec::new();
-        src_box.write_box(&mut buf).unwrap();
-        assert_eq!(buf.len(), src_box.box_size() as usize);
-
-        let mut reader = Cursor::new(&buf);
-        let header = BoxHeader::read(&mut reader).unwrap();
-        assert_eq!(header.name, BoxType::TfhdBox);
-        assert_eq!(src_box.box_size(), header.size);
-
-        let dst_box = TfhdBox::read_box(&mut reader, header.size).unwrap();
-        assert_eq!(src_box, dst_box);
-    }
-
-    #[test]
-    fn test_tfhd_with_flags() {
-        let src_box = TfhdBox {
-            version: 0,
-            flags: TfhdBox::FLAG_SAMPLE_DESCRIPTION_INDEX
-                | TfhdBox::FLAG_DEFAULT_SAMPLE_DURATION
-                | TfhdBox::FLAG_DEFAULT_SAMPLE_FLAGS,
-            track_id: 1,
-            base_data_offset: None,
-            sample_description_index: Some(1),
-            default_sample_duration: Some(512),
-            default_sample_size: None,
-            default_sample_flags: Some(0x1010000),
-        };
-        let mut buf = Vec::new();
-        src_box.write_box(&mut buf).unwrap();
-        assert_eq!(buf.len(), src_box.box_size() as usize);
-
-        let mut reader = Cursor::new(&buf);
-        let header = BoxHeader::read(&mut reader).unwrap();
-        assert_eq!(header.name, BoxType::TfhdBox);
-        assert_eq!(src_box.box_size(), header.size);
-
-        let dst_box = TfhdBox::read_box(&mut reader, header.size).unwrap();
-        assert_eq!(src_box, dst_box);
     }
 }

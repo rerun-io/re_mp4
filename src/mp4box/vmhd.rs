@@ -1,6 +1,6 @@
-use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use byteorder::{BigEndian, ReadBytesExt, };
 use serde::Serialize;
-use std::io::{Read, Seek, Write};
+use std::io::{Read, Seek, };
 
 use crate::mp4box::*;
 
@@ -72,53 +72,5 @@ impl<R: Read + Seek> ReadBox<&mut R> for VmhdBox {
             graphics_mode,
             op_color,
         })
-    }
-}
-
-impl<W: Write> WriteBox<&mut W> for VmhdBox {
-    fn write_box(&self, writer: &mut W) -> Result<u64> {
-        let size = self.box_size();
-        BoxHeader::new(self.box_type(), size).write(writer)?;
-
-        write_box_header_ext(writer, self.version, self.flags)?;
-
-        writer.write_u16::<BigEndian>(self.graphics_mode)?;
-        writer.write_u16::<BigEndian>(self.op_color.red)?;
-        writer.write_u16::<BigEndian>(self.op_color.green)?;
-        writer.write_u16::<BigEndian>(self.op_color.blue)?;
-
-        Ok(size)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::mp4box::BoxHeader;
-    use std::io::Cursor;
-
-    #[test]
-    fn test_vmhd() {
-        let src_box = VmhdBox {
-            version: 0,
-            flags: 1,
-            graphics_mode: 0,
-            op_color: RgbColor {
-                red: 0,
-                green: 0,
-                blue: 0,
-            },
-        };
-        let mut buf = Vec::new();
-        src_box.write_box(&mut buf).unwrap();
-        assert_eq!(buf.len(), src_box.box_size() as usize);
-
-        let mut reader = Cursor::new(&buf);
-        let header = BoxHeader::read(&mut reader).unwrap();
-        assert_eq!(header.name, BoxType::VmhdBox);
-        assert_eq!(src_box.box_size(), header.size);
-
-        let dst_box = VmhdBox::read_box(&mut reader, header.size).unwrap();
-        assert_eq!(src_box, dst_box);
     }
 }

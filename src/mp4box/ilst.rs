@@ -92,25 +92,6 @@ impl<R: Read + Seek> ReadBox<&mut R> for IlstBox {
     }
 }
 
-impl<W: Write> WriteBox<&mut W> for IlstBox {
-    fn write_box(&self, writer: &mut W) -> Result<u64> {
-        let size = self.box_size();
-        BoxHeader::new(self.box_type(), size).write(writer)?;
-
-        for (key, value) in &self.items {
-            let name = match key {
-                MetadataKey::Title => BoxType::NameBox,
-                MetadataKey::Year => BoxType::DayBox,
-                MetadataKey::Poster => BoxType::CovrBox,
-                MetadataKey::Summary => BoxType::DescBox,
-            };
-            BoxHeader::new(name, value.get_size()).write(writer)?;
-            value.data.write_box(writer)?;
-        }
-        Ok(size)
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
 pub struct IlstItemBox {
     pub data: DataBox,
@@ -196,58 +177,5 @@ fn item_to_u32(item: &IlstItemBox) -> Option<u32> {
         DataType::Binary if item.data.data.len() == 4 => Some(BigEndian::read_u32(&item.data.data)),
         DataType::Text => String::from_utf8_lossy(&item.data.data).parse::<u32>().ok(),
         _ => None,
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::mp4box::BoxHeader;
-    use std::io::Cursor;
-
-    #[test]
-    fn test_ilst() {
-        let src_year = IlstItemBox {
-            data: DataBox {
-                data_type: DataType::Text,
-                data: b"test_year".to_vec(),
-            },
-        };
-        let src_box = IlstBox {
-            items: [
-                (MetadataKey::Title, IlstItemBox::default()),
-                (MetadataKey::Year, src_year),
-                (MetadataKey::Poster, IlstItemBox::default()),
-                (MetadataKey::Summary, IlstItemBox::default()),
-            ]
-            .into(),
-        };
-        let mut buf = Vec::new();
-        src_box.write_box(&mut buf).unwrap();
-        assert_eq!(buf.len(), src_box.box_size() as usize);
-
-        let mut reader = Cursor::new(&buf);
-        let header = BoxHeader::read(&mut reader).unwrap();
-        assert_eq!(header.name, BoxType::IlstBox);
-        assert_eq!(src_box.box_size(), header.size);
-
-        let dst_box = IlstBox::read_box(&mut reader, header.size).unwrap();
-        assert_eq!(src_box, dst_box);
-    }
-
-    #[test]
-    fn test_ilst_empty() {
-        let src_box = IlstBox::default();
-        let mut buf = Vec::new();
-        src_box.write_box(&mut buf).unwrap();
-        assert_eq!(buf.len(), src_box.box_size() as usize);
-
-        let mut reader = Cursor::new(&buf);
-        let header = BoxHeader::read(&mut reader).unwrap();
-        assert_eq!(header.name, BoxType::IlstBox);
-        assert_eq!(src_box.box_size(), header.size);
-
-        let dst_box = IlstBox::read_box(&mut reader, header.size).unwrap();
-        assert_eq!(src_box, dst_box);
     }
 }

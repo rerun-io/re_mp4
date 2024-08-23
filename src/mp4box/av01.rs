@@ -1,4 +1,4 @@
-use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use byteorder::{BigEndian, ReadBytesExt};
 use serde::Serialize;
 use std::io::{Read, Seek};
 
@@ -18,6 +18,9 @@ pub struct Av01Box {
     pub frame_count: u16,
     pub depth: u16,
     pub av1c: Av1CBox,
+
+    /// `av1c` encoded as bytes without header.
+    pub av1c_raw: Vec<u8>,
 }
 
 impl Av01Box {
@@ -77,7 +80,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for Av01Box {
             ));
         }
         if name == BoxType::Av1CBox {
-            let av1c = Av1CBox::read_box(reader, s)?;
+            let (av1c, av1c_raw) = read_box_raw(reader, s)?;
 
             skip_bytes_to(reader, start + size)?;
 
@@ -90,39 +93,11 @@ impl<R: Read + Seek> ReadBox<&mut R> for Av01Box {
                 frame_count,
                 depth,
                 av1c,
+                av1c_raw,
             })
         } else {
             Err(Error::InvalidData("av1c not found"))
         }
-    }
-}
-
-impl<W: Write> WriteBox<&mut W> for Av01Box {
-    fn write_box(&self, writer: &mut W) -> Result<u64> {
-        let size = self.box_size();
-        BoxHeader::new(self.box_type(), size).write(writer)?;
-
-        writer.write_u32::<BigEndian>(0)?; // reserved
-        writer.write_u16::<BigEndian>(0)?; // reserved
-        writer.write_u16::<BigEndian>(self.data_reference_index)?;
-
-        writer.write_u32::<BigEndian>(0)?; // pre-defined, reserved
-        writer.write_u64::<BigEndian>(0)?; // pre-defined
-        writer.write_u32::<BigEndian>(0)?; // pre-defined
-        writer.write_u16::<BigEndian>(self.width)?;
-        writer.write_u16::<BigEndian>(self.height)?;
-        writer.write_u32::<BigEndian>(self.horizresolution.raw_value())?;
-        writer.write_u32::<BigEndian>(self.vertresolution.raw_value())?;
-        writer.write_u32::<BigEndian>(0)?; // reserved
-        writer.write_u16::<BigEndian>(self.frame_count)?;
-        // skip compressorname
-        write_zeros(writer, 32)?;
-        writer.write_u16::<BigEndian>(self.depth)?;
-        writer.write_i16::<BigEndian>(-1)?; // pre-defined
-
-        self.av1c.write_box(writer)?;
-
-        Ok(size)
     }
 }
 
@@ -213,42 +188,5 @@ impl<R: Read + Seek> ReadBox<&mut R> for Av1CBox {
             initial_presentation_delay_minus_one,
             config_obus,
         })
-    }
-}
-
-impl<W: Write> WriteBox<&mut W> for Av1CBox {
-    fn write_box(&self, writer: &mut W) -> Result<u64> {
-        let size = self.box_size();
-        BoxHeader::new(self.box_type(), size).write(writer)?;
-
-        let marker_byte = 0x80 | 0x01;
-        writer.write_u8(marker_byte)?;
-
-        let profile_byte = (self.profile << 5) | (self.level & 0x1f);
-        writer.write_u8(profile_byte)?;
-
-        let bit_depth_flag = match self.bit_depth {
-            12 => 0x60,
-            10 => 0x40,
-            _ => 0x00, // Assuming 8-bit depth
-        };
-        let flags_byte = bit_depth_flag
-            | ((self.tier & 0x01) << 7)
-            | ((self.monochrome as u8) << 4)
-            | ((self.chroma_subsampling_x & 0x01) << 3)
-            | ((self.chroma_subsampling_y & 0x01) << 2)
-            | (self.chroma_sample_position & 0x03);
-        writer.write_u8(flags_byte)?;
-
-        let delay_byte = if self.initial_presentation_delay_present {
-            0x10 | (self.initial_presentation_delay_minus_one & 0x0f)
-        } else {
-            0x00
-        };
-        writer.write_u8(delay_byte)?;
-
-        writer.write_all(&self.config_obus)?;
-
-        Ok(size)
     }
 }

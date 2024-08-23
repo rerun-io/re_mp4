@@ -1,6 +1,6 @@
-use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use byteorder::{BigEndian, ReadBytesExt, };
 use serde::Serialize;
-use std::io::{Read, Seek, Write};
+use std::io::{Read, Seek, };
 use std::mem::size_of;
 
 use crate::mp4box::*;
@@ -109,63 +109,5 @@ impl<R: Read + Seek> ReadBox<&mut R> for StscBox {
             flags,
             entries,
         })
-    }
-}
-
-impl<W: Write> WriteBox<&mut W> for StscBox {
-    fn write_box(&self, writer: &mut W) -> Result<u64> {
-        let size = self.box_size();
-        BoxHeader::new(self.box_type(), size).write(writer)?;
-
-        write_box_header_ext(writer, self.version, self.flags)?;
-
-        writer.write_u32::<BigEndian>(self.entries.len() as u32)?;
-        for entry in self.entries.iter() {
-            writer.write_u32::<BigEndian>(entry.first_chunk)?;
-            writer.write_u32::<BigEndian>(entry.samples_per_chunk)?;
-            writer.write_u32::<BigEndian>(entry.sample_description_index)?;
-        }
-
-        Ok(size)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::mp4box::BoxHeader;
-    use std::io::Cursor;
-
-    #[test]
-    fn test_stsc() {
-        let src_box = StscBox {
-            version: 0,
-            flags: 0,
-            entries: vec![
-                StscEntry {
-                    first_chunk: 1,
-                    samples_per_chunk: 1,
-                    sample_description_index: 1,
-                    first_sample: 1,
-                },
-                StscEntry {
-                    first_chunk: 19026,
-                    samples_per_chunk: 14,
-                    sample_description_index: 1,
-                    first_sample: 19026,
-                },
-            ],
-        };
-        let mut buf = Vec::new();
-        src_box.write_box(&mut buf).unwrap();
-        assert_eq!(buf.len(), src_box.box_size() as usize);
-
-        let mut reader = Cursor::new(&buf);
-        let header = BoxHeader::read(&mut reader).unwrap();
-        assert_eq!(header.name, BoxType::StscBox);
-        assert_eq!(src_box.box_size(), header.size);
-
-        let dst_box = StscBox::read_box(&mut reader, header.size).unwrap();
-        assert_eq!(src_box, dst_box);
     }
 }

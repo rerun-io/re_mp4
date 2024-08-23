@@ -1,6 +1,6 @@
-use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use byteorder::{BigEndian, ReadBytesExt, };
 use serde::Serialize;
-use std::io::{Read, Seek, Write};
+use std::io::{Read, Seek, };
 use std::mem::size_of;
 
 use crate::mp4box::*;
@@ -76,48 +76,5 @@ impl<R: Read + Seek> ReadBox<&mut R> for StssBox {
             flags,
             entries,
         })
-    }
-}
-
-impl<W: Write> WriteBox<&mut W> for StssBox {
-    fn write_box(&self, writer: &mut W) -> Result<u64> {
-        let size = self.box_size();
-        BoxHeader::new(self.box_type(), size).write(writer)?;
-
-        write_box_header_ext(writer, self.version, self.flags)?;
-
-        writer.write_u32::<BigEndian>(self.entries.len() as u32)?;
-        for sample_number in self.entries.iter() {
-            writer.write_u32::<BigEndian>(*sample_number)?;
-        }
-
-        Ok(size)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::mp4box::BoxHeader;
-    use std::io::Cursor;
-
-    #[test]
-    fn test_stss() {
-        let src_box = StssBox {
-            version: 0,
-            flags: 0,
-            entries: vec![1, 61, 121, 181, 241, 301, 361, 421, 481],
-        };
-        let mut buf = Vec::new();
-        src_box.write_box(&mut buf).unwrap();
-        assert_eq!(buf.len(), src_box.box_size() as usize);
-
-        let mut reader = Cursor::new(&buf);
-        let header = BoxHeader::read(&mut reader).unwrap();
-        assert_eq!(header.name, BoxType::StssBox);
-        assert_eq!(src_box.box_size(), header.size);
-
-        let dst_box = StssBox::read_box(&mut reader, header.size).unwrap();
-        assert_eq!(src_box, dst_box);
     }
 }

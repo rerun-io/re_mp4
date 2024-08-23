@@ -1,6 +1,6 @@
-use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use byteorder::{BigEndian, ReadBytesExt, };
 use serde::Serialize;
-use std::io::{Read, Seek, Write};
+use std::io::{Read, Seek, };
 
 use crate::mp4box::*;
 
@@ -67,46 +67,5 @@ impl<R: Read + Seek> ReadBox<&mut R> for SmhdBox {
             flags,
             balance,
         })
-    }
-}
-
-impl<W: Write> WriteBox<&mut W> for SmhdBox {
-    fn write_box(&self, writer: &mut W) -> Result<u64> {
-        let size = self.box_size();
-        BoxHeader::new(self.box_type(), size).write(writer)?;
-
-        write_box_header_ext(writer, self.version, self.flags)?;
-
-        writer.write_i16::<BigEndian>(self.balance.raw_value())?;
-        writer.write_u16::<BigEndian>(0)?; // reserved
-
-        Ok(size)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::mp4box::BoxHeader;
-    use std::io::Cursor;
-
-    #[test]
-    fn test_smhd() {
-        let src_box = SmhdBox {
-            version: 0,
-            flags: 0,
-            balance: FixedPointI8::new_raw(-1),
-        };
-        let mut buf = Vec::new();
-        src_box.write_box(&mut buf).unwrap();
-        assert_eq!(buf.len(), src_box.box_size() as usize);
-
-        let mut reader = Cursor::new(&buf);
-        let header = BoxHeader::read(&mut reader).unwrap();
-        assert_eq!(header.name, BoxType::SmhdBox);
-        assert_eq!(src_box.box_size(), header.size);
-
-        let dst_box = SmhdBox::read_box(&mut reader, header.size).unwrap();
-        assert_eq!(src_box, dst_box);
     }
 }

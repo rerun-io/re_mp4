@@ -1,6 +1,6 @@
-use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use byteorder::{BigEndian, ReadBytesExt, };
 use serde::Serialize;
-use std::io::{Read, Seek, Write};
+use std::io::{Read, Seek, };
 
 use crate::mp4box::*;
 
@@ -70,53 +70,5 @@ impl<R: Read + Seek> ReadBox<&mut R> for TrexBox {
             default_sample_size,
             default_sample_flags,
         })
-    }
-}
-
-impl<W: Write> WriteBox<&mut W> for TrexBox {
-    fn write_box(&self, writer: &mut W) -> Result<u64> {
-        let size = self.box_size();
-        BoxHeader::new(self.box_type(), size).write(writer)?;
-
-        write_box_header_ext(writer, self.version, self.flags)?;
-
-        writer.write_u32::<BigEndian>(self.track_id)?;
-        writer.write_u32::<BigEndian>(self.default_sample_description_index)?;
-        writer.write_u32::<BigEndian>(self.default_sample_duration)?;
-        writer.write_u32::<BigEndian>(self.default_sample_size)?;
-        writer.write_u32::<BigEndian>(self.default_sample_flags)?;
-
-        Ok(size)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::mp4box::BoxHeader;
-    use std::io::Cursor;
-
-    #[test]
-    fn test_trex() {
-        let src_box = TrexBox {
-            version: 0,
-            flags: 0,
-            track_id: 1,
-            default_sample_description_index: 1,
-            default_sample_duration: 1000,
-            default_sample_size: 0,
-            default_sample_flags: 65536,
-        };
-        let mut buf = Vec::new();
-        src_box.write_box(&mut buf).unwrap();
-        assert_eq!(buf.len(), src_box.box_size() as usize);
-
-        let mut reader = Cursor::new(&buf);
-        let header = BoxHeader::read(&mut reader).unwrap();
-        assert_eq!(header.name, BoxType::TrexBox);
-        assert_eq!(src_box.box_size(), header.size);
-
-        let dst_box = TrexBox::read_box(&mut reader, header.size).unwrap();
-        assert_eq!(src_box, dst_box);
     }
 }
