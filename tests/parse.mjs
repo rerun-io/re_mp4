@@ -123,5 +123,11 @@ function unboxVideo(file) {
 }
 
 const file = process.argv[2];
-console.log(unboxVideo(fs.readFileSync(file).buffer));
+const video = unboxVideo(fs.readFileSync(file).buffer);
+console.log(video);
 
+let num_samples = 0;
+for (const segment of video.segments) {
+  num_samples += segment.samples.length;
+}
+console.log(num_samples);
