@@ -99,20 +99,20 @@ impl Mp4 {
     }
 
     fn build_tracks(&mut self) -> HashMap<u64, Track> {
-        let mut sample_n = 0usize;
-        let mut chunk_index = 1u64;
-        let mut chunk_run_index = 0usize;
-        let mut last_sample_in_chunk = 0u64;
-        let mut offset_in_chunk = 0u64;
-        let mut last_chunk_in_run = 0u64;
-        let mut last_sample_in_stts_run = -1i64;
-        let mut stts_run_index = -1i64;
-        let mut last_stss_index = 0;
-
         let mut tracks = HashMap::new();
 
         // load samples from traks
         for trak in &self.moov.traks {
+            let mut sample_n = 0usize;
+            let mut chunk_index = 1u64;
+            let mut chunk_run_index = 0usize;
+            let mut last_sample_in_chunk = 0u64;
+            let mut offset_in_chunk = 0u64;
+            let mut last_chunk_in_run = 0u64;
+            let mut last_sample_in_stts_run = -1i64;
+            let mut stts_run_index = -1i64;
+            let mut last_stss_index = 0;
+
             let mut samples = Vec::<Sample>::new();
 
             fn get_sample_chunk_offset(stbl: &StblBox, chunk_index: u64) -> u64 {
