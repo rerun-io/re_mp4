@@ -406,6 +406,24 @@ impl Track {
         &self.data[sample.offset as usize..(sample.offset + sample.size) as usize]
     }
 
+    pub fn raw_codec_config(&self, mp4: &Mp4) -> Option<Vec<u8>> {
+        let sample_description = &self.trak(mp4).mdia.minf.stbl.stsd;
+
+        if let Some(Av01Box { av1c, .. }) = &sample_description.av01 {
+            Some(av1c.raw.clone())
+        } else if let Some(Avc1Box { avcc, .. }) = &sample_description.avc1 {
+            Some(avcc.raw.clone())
+        } else if let Some(Hvc1Box { hvcc, .. }) = &sample_description.hvc1 {
+            Some(hvcc.raw.clone())
+        } else if let Some(Vp08Box { vpcc, .. }) = &sample_description.vp08 {
+            Some(vpcc.raw.clone())
+        } else if let Some(Vp09Box { vpcc, .. }) = &sample_description.vp09 {
+            Some(vpcc.raw.clone())
+        } else {
+            None
+        }
+    }
+
     pub fn codec_string(&self, mp4: &Mp4) -> Option<String> {
         let sample_description = &self.trak(mp4).mdia.minf.stbl.stsd;
 
