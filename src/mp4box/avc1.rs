@@ -132,6 +132,7 @@ pub struct AvcCBox {
     pub length_size_minus_one: u8,
     pub sequence_parameter_sets: Vec<NalUnit>,
     pub picture_parameter_sets: Vec<NalUnit>,
+    pub ext: Vec<u8>,
 }
 
 impl AvcCBox {
@@ -144,6 +145,7 @@ impl AvcCBox {
             length_size_minus_one: 0xff, // length_size = 4
             sequence_parameter_sets: vec![NalUnit::from(sps)],
             picture_parameter_sets: vec![NalUnit::from(pps)],
+            ext: Vec::new(),
         }
     }
 }
@@ -177,6 +179,7 @@ impl Mp4Box for AvcCBox {
 impl<R: Read + Seek> ReadBox<&mut R> for AvcCBox {
     fn read_box(reader: &mut R, size: u64) -> Result<Self> {
         let start = box_start(reader)?;
+        let content_start = reader.stream_position()?;
 
         let configuration_version = reader.read_u8()?;
         let avc_profile_indication = reader.read_u8()?;
@@ -196,6 +199,11 @@ impl<R: Read + Seek> ReadBox<&mut R> for AvcCBox {
             picture_parameter_sets.push(nal_unit);
         }
 
+        let content_end = reader.stream_position()?;
+        let remainder = size - HEADER_SIZE - (content_end - content_start);
+        let mut ext = vec![0u8; remainder as usize];
+        reader.read_exact(&mut ext)?;
+
         skip_bytes_to(reader, start + size)?;
 
         Ok(AvcCBox {
@@ -206,6 +214,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for AvcCBox {
             length_size_minus_one,
             sequence_parameter_sets,
             picture_parameter_sets,
+            ext,
         })
     }
 }
