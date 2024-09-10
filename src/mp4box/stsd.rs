@@ -4,7 +4,7 @@ use std::io::{Read, Seek};
 
 use crate::mp4box::vp09::Vp09Box;
 use crate::mp4box::*;
-use crate::mp4box::{avc1::Avc1Box, hev1::Hev1Box, mp4a::Mp4aBox, tx3g::Tx3gBox};
+use crate::mp4box::{avc1::Avc1Box, hev1::Hvc1Box, mp4a::Mp4aBox, tx3g::Tx3gBox};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
 pub struct StsdBox {
@@ -21,7 +21,7 @@ pub struct StsdBox {
 
     /// HEVC video codec (h.265)
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub hev1: Option<Hev1Box>,
+    pub hvc1: Option<Hvc1Box>,
 
     /// VP9 video codec
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -38,7 +38,7 @@ pub struct StsdBox {
 
 impl StsdBox {
     pub fn kind(&self) -> TrackKind {
-        if self.av01.is_some() || self.avc1.is_some() || self.hev1.is_some() || self.vp09.is_some()
+        if self.av01.is_some() || self.avc1.is_some() || self.hvc1.is_some() || self.vp09.is_some()
         {
             TrackKind::Video
         } else if self.mp4a.is_some() {
@@ -46,7 +46,7 @@ impl StsdBox {
         } else if self.tx3g.is_some() {
             TrackKind::Subtitle
         } else {
-            panic!()
+            TrackKind::Video
         }
     }
 
@@ -60,7 +60,7 @@ impl StsdBox {
             size += av01.box_size();
         } else if let Some(ref avc1) = self.avc1 {
             size += avc1.box_size();
-        } else if let Some(ref hev1) = self.hev1 {
+        } else if let Some(ref hev1) = self.hvc1 {
             size += hev1.box_size();
         } else if let Some(ref vp09) = self.vp09 {
             size += vp09.box_size();
@@ -102,7 +102,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for StsdBox {
 
         let mut av01 = None;
         let mut avc1 = None;
-        let mut hev1 = None;
+        let mut hvc1 = None;
         let mut vp09 = None;
         let mut mp4a = None;
         let mut tx3g = None;
@@ -120,13 +120,15 @@ impl<R: Read + Seek> ReadBox<&mut R> for StsdBox {
             BoxType::Av01Box => {
                 av01 = Some(Av01Box::read_box(reader, s)?);
             }
-            BoxType::Avc1Box => {
+            // According to MPEG-4 part 15, sections 5.4.2.1.2 and 5.4.4 (or the whole 5.4 section in general),
+            // the Avc1Box and Avc3Box are identical, but the Avc3Box is used in some cases.
+            BoxType::Avc1Box | BoxType::Avc3Box => {
                 avc1 = Some(Avc1Box::read_box(reader, s)?);
             }
-            BoxType::Hev1Box => {
-                hev1 = Some(Hev1Box::read_box(reader, s)?);
+            BoxType::Hev1Box | BoxType::Hvc1Box => {
+                hvc1 = Some(Hvc1Box::read_box(reader, s)?);
             }
-            BoxType::Vp09Box => {
+            BoxType::Vp08Box | BoxType::Vp09Box => {
                 vp09 = Some(Vp09Box::read_box(reader, s)?);
             }
             BoxType::Mp4aBox => {
@@ -145,7 +147,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for StsdBox {
             flags,
             av01,
             avc1,
-            hev1,
+            hvc1,
             vp09,
             mp4a,
             tx3g,

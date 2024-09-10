@@ -17,10 +17,7 @@ pub struct Av01Box {
     pub vertresolution: FixedPointU16,
     pub frame_count: u16,
     pub depth: u16,
-    pub av1c: Av1CBox,
-
-    /// `av1c` encoded as bytes without header.
-    pub av1c_raw: Vec<u8>,
+    pub av1c: RawBox<Av1CBox>,
 }
 
 impl Av01Box {
@@ -80,7 +77,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for Av01Box {
             ));
         }
         if name == BoxType::Av1CBox {
-            let (av1c, av1c_raw) = read_box_raw(reader, s)?;
+            let av1c = RawBox::<Av1CBox>::read_box(reader, s)?;
 
             skip_bytes_to(reader, start + size)?;
 
@@ -93,7 +90,6 @@ impl<R: Read + Seek> ReadBox<&mut R> for Av01Box {
                 frame_count,
                 depth,
                 av1c,
-                av1c_raw,
             })
         } else {
             Err(Error::InvalidData("av1c not found"))

@@ -17,7 +17,7 @@ pub struct Avc1Box {
     pub vertresolution: FixedPointU16,
     pub frame_count: u16,
     pub depth: u16,
-    pub avcc: AvcCBox,
+    pub avcc: RawBox<AvcCBox>,
 }
 
 impl Default for Avc1Box {
@@ -30,25 +30,12 @@ impl Default for Avc1Box {
             vertresolution: FixedPointU16::new(0x48),
             frame_count: 1,
             depth: 0x0018,
-            avcc: AvcCBox::default(),
+            avcc: RawBox::default(),
         }
     }
 }
 
 impl Avc1Box {
-    pub fn new(config: &AvcConfig) -> Self {
-        Avc1Box {
-            data_reference_index: 1,
-            width: config.width,
-            height: config.height,
-            horizresolution: FixedPointU16::new(0x48),
-            vertresolution: FixedPointU16::new(0x48),
-            frame_count: 1,
-            depth: 0x0018,
-            avcc: AvcCBox::new(&config.seq_param_set, &config.pic_param_set),
-        }
-    }
-
     pub fn get_type(&self) -> BoxType {
         BoxType::Avc1Box
     }
@@ -115,7 +102,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for Avc1Box {
                 ));
             }
             if name == BoxType::AvcCBox {
-                let avcc = AvcCBox::read_box(reader, s)?;
+                let avcc = RawBox::<AvcCBox>::read_box(reader, s)?;
 
                 skip_bytes_to(reader, start + size)?;
 

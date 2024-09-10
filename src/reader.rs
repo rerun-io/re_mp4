@@ -235,12 +235,12 @@ impl Mp4 {
     }
 
     fn update_sample_list(&mut self, tracks: &mut HashMap<u64, Track>) {
-        let mut last_run_position = 0;
-
         // if the input file is fragmented and fetched in multiple downloads, we need to update the list of samples
         for moof in &self.moofs {
             // process moof to update sample list
             for traf in &moof.trafs {
+                let mut last_run_position = 0;
+
                 let track = tracks.get_mut(&(traf.tfhd.track_id as u64)).unwrap();
                 let trak = self
                     .moov
@@ -291,8 +291,8 @@ impl Mp4 {
 
                         let mut timestamp = 0;
                         if track.first_traf_merged || sample_n > 0 {
-                            let prev_to_last = &track.samples[track.samples.len() - 2];
-                            timestamp = prev_to_last.timestamp + prev_to_last.duration;
+                            let prev = &track.samples[track.samples.len() - 1];
+                            timestamp = prev.timestamp + prev.duration;
                         } else {
                             if let Some(tfdt) = &traf.tfdt {
                                 timestamp = tfdt.base_media_decode_time;

@@ -1,11 +1,11 @@
-use byteorder::{BigEndian, ReadBytesExt, };
+use byteorder::{BigEndian, ReadBytesExt};
 use serde::Serialize;
-use std::io::{Read, Seek, };
+use std::io::{Read, Seek};
 
 use crate::mp4box::*;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct Hev1Box {
+pub struct Hvc1Box {
     pub data_reference_index: u16,
     pub width: u16,
     pub height: u16,
@@ -17,12 +17,12 @@ pub struct Hev1Box {
     pub vertresolution: FixedPointU16,
     pub frame_count: u16,
     pub depth: u16,
-    pub hvcc: HvcCBox,
+    pub hvcc: RawBox<HvcCBox>,
 }
 
-impl Default for Hev1Box {
+impl Default for Hvc1Box {
     fn default() -> Self {
-        Hev1Box {
+        Hvc1Box {
             data_reference_index: 0,
             width: 0,
             height: 0,
@@ -30,25 +30,12 @@ impl Default for Hev1Box {
             vertresolution: FixedPointU16::new(0x48),
             frame_count: 1,
             depth: 0x0018,
-            hvcc: HvcCBox::default(),
+            hvcc: RawBox::default(),
         }
     }
 }
 
-impl Hev1Box {
-    pub fn new(config: &HevcConfig) -> Self {
-        Hev1Box {
-            data_reference_index: 1,
-            width: config.width,
-            height: config.height,
-            horizresolution: FixedPointU16::new(0x48),
-            vertresolution: FixedPointU16::new(0x48),
-            frame_count: 1,
-            depth: 0x0018,
-            hvcc: HvcCBox::new(),
-        }
-    }
-
+impl Hvc1Box {
     pub fn get_type(&self) -> BoxType {
         BoxType::Hev1Box
     }
@@ -58,7 +45,7 @@ impl Hev1Box {
     }
 }
 
-impl Mp4Box for Hev1Box {
+impl Mp4Box for Hvc1Box {
     fn box_type(&self) -> BoxType {
         self.get_type()
     }
@@ -80,7 +67,7 @@ impl Mp4Box for Hev1Box {
     }
 }
 
-impl<R: Read + Seek> ReadBox<&mut R> for Hev1Box {
+impl<R: Read + Seek> ReadBox<&mut R> for Hvc1Box {
     fn read_box(reader: &mut R, size: u64) -> Result<Self> {
         let start = box_start(reader)?;
 
@@ -109,11 +96,11 @@ impl<R: Read + Seek> ReadBox<&mut R> for Hev1Box {
             ));
         }
         if name == BoxType::HvcCBox {
-            let hvcc = HvcCBox::read_box(reader, s)?;
+            let hvcc = RawBox::<HvcCBox>::read_box(reader, s)?;
 
             skip_bytes_to(reader, start + size)?;
 
-            Ok(Hev1Box {
+            Ok(Hvc1Box {
                 data_reference_index,
                 width,
                 height,

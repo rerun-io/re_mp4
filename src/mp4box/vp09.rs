@@ -3,6 +3,7 @@ use crate::mp4box::*;
 use crate::Mp4Box;
 use serde::Serialize;
 
+/// Note: `Vp08Box` is identical to `Vp09Box`
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
 pub struct Vp09Box {
     pub version: u8,
@@ -19,50 +20,7 @@ pub struct Vp09Box {
     pub compressorname: [u8; 32],
     pub depth: u16,
     pub end_code: u16,
-    pub vpcc: VpccBox,
-}
-
-impl Vp09Box {
-    pub const DEFAULT_START_CODE: u16 = 0;
-    pub const DEFAULT_END_CODE: u16 = 0xFFFF;
-    pub const DEFAULT_DATA_REFERENCE_INDEX: u16 = 1;
-    pub const DEFAULT_HORIZRESOLUTION: (u16, u16) = (0x48, 0x00);
-    pub const DEFAULT_VERTRESOLUTION: (u16, u16) = (0x48, 0x00);
-    pub const DEFAULT_FRAME_COUNT: u16 = 1;
-    pub const DEFAULT_COMPRESSORNAME: [u8; 32] = [0; 32];
-    pub const DEFAULT_DEPTH: u16 = 24;
-
-    pub fn new(config: &Vp9Config) -> Self {
-        Vp09Box {
-            version: 0,
-            flags: 0,
-            start_code: Vp09Box::DEFAULT_START_CODE,
-            data_reference_index: Vp09Box::DEFAULT_DATA_REFERENCE_INDEX,
-            reserved0: Default::default(),
-            width: config.width,
-            height: config.height,
-            horizresolution: Vp09Box::DEFAULT_HORIZRESOLUTION,
-            vertresolution: Vp09Box::DEFAULT_VERTRESOLUTION,
-            reserved1: Default::default(),
-            frame_count: Vp09Box::DEFAULT_FRAME_COUNT,
-            compressorname: Vp09Box::DEFAULT_COMPRESSORNAME,
-            depth: Vp09Box::DEFAULT_DEPTH,
-            end_code: Vp09Box::DEFAULT_END_CODE,
-            vpcc: VpccBox {
-                version: VpccBox::DEFAULT_VERSION,
-                flags: 0,
-                profile: 0,
-                level: 0x1F,
-                bit_depth: VpccBox::DEFAULT_BIT_DEPTH,
-                chroma_subsampling: 0,
-                video_full_range_flag: false,
-                color_primaries: 0,
-                transfer_characteristics: 0,
-                matrix_coefficients: 0,
-                codec_initialization_data_size: 0,
-            },
-        }
-    }
+    pub vpcc: RawBox<VpccBox>,
 }
 
 impl Mp4Box for Vp09Box {
@@ -126,7 +84,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for Vp09Box {
                     "vp09 box contains a box with a larger size than it",
                 ));
             }
-            VpccBox::read_box(reader, header.size)?
+            RawBox::<VpccBox>::read_box(reader, header.size)?
         };
 
         skip_bytes_to(reader, start + size)?;

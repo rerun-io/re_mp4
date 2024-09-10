@@ -47,6 +47,8 @@ function unboxVideo(file) {
       throw new Error("avcC, hvcC, vpcC, or av1C box not found");
     }
 
+    console.log(track.codec);
+
     videoDecoderConfig = {
       codec: track.codec.startsWith("vp08") ? "vp8" : track.codec,
       codedHeight: track.video.height,
@@ -124,10 +126,11 @@ function unboxVideo(file) {
 
 const file = process.argv[2];
 const video = unboxVideo(fs.readFileSync(file).buffer);
-console.log(video);
+console.log(video.videoDecoderConfig);
 
 let num_samples = 0;
 for (const segment of video.segments) {
   num_samples += segment.samples.length;
 }
 console.log(num_samples);
+

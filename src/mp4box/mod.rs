@@ -57,6 +57,7 @@
 //!
 
 use byteorder::{BigEndian, ReadBytesExt};
+use serde::Serialize;
 use std::convert::TryInto;
 use std::io::{Read, Seek, SeekFrom};
 
@@ -118,7 +119,7 @@ pub use elst::ElstBox;
 pub use emsg::EmsgBox;
 pub use ftyp::FtypBox;
 pub use hdlr::HdlrBox;
-pub use hev1::Hev1Box;
+pub use hev1::Hvc1Box;
 pub use ilst::IlstBox;
 pub use mdhd::MdhdBox;
 pub use mdia::MdiaBox;
@@ -225,16 +226,19 @@ boxtype! {
     UrlBox  => 0x75726C20,
     SmhdBox => 0x736d6864,
     Avc1Box => 0x61766331,
+    Avc3Box => 0x61766333,
     AvcCBox => 0x61766343,
     Av01Box => 0x61763031,
     Av1CBox => 0x61763143,
     Hev1Box => 0x68657631,
+    Hvc1Box => 0x68766331,
     HvcCBox => 0x68766343,
     Mp4aBox => 0x6d703461,
     EsdsBox => 0x65736473,
     Tx3gBox => 0x74783367,
     VpccBox => 0x76706343,
     Vp09Box => 0x76703039,
+    Vp08Box => 0x76703038,
     DataBox => 0x64617461,
     IlstBox => 0x696c7374,
     NameBox => 0xa96e616d,
@@ -333,18 +337,39 @@ pub fn skip_box<S: Seek>(seeker: &mut S, size: u64) -> Result<()> {
     Ok(())
 }
 
-pub fn read_box_raw<R: Read + Seek, B: for<'a> ReadBox<&'a mut R>>(
-    reader: &mut R,
-    size: u64,
-) -> Result<(B, Vec<u8>)> {
-    let start = reader.stream_position()?;
-    let contents = B::read_box(reader, size)?;
-    let end = reader.stream_position()?;
-    let len = end - start;
-    let mut raw = vec![0u8; len as usize];
-    reader.seek(SeekFrom::Start(start))?;
-    reader.read_exact(&mut raw[..])?;
-    Ok((contents, raw))
+#[derive(Default, Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct RawBox<T> {
+    pub contents: T,
+    pub raw: Vec<u8>,
+}
+
+impl<R: Read + Seek, T: for<'a> ReadBox<&'a mut R>> ReadBox<&mut R> for RawBox<T> {
+    fn read_box(reader: &mut R, size: u64) -> Result<Self> {
+        let start = reader.stream_position()?;
+
+        let contents = T::read_box(reader, size)?;
+
+        let end = reader.stream_position()?;
+        let mut raw = vec![0u8; (end - start) as usize];
+        reader.seek(SeekFrom::Start(start))?;
+        reader.read_exact(&mut raw[..])?;
+
+        Ok(Self { contents, raw })
+    }
+}
+
+impl<T> std::ops::Deref for RawBox<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.contents
+    }
+}
+
+impl<T> std::ops::DerefMut for RawBox<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.contents
+    }
 }
 
 mod value_u32 {
