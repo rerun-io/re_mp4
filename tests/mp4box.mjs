@@ -3392,6 +3392,7 @@ BoxParser.createBoxCtor("hvcC", function (stream) {
   var tmp_byte;
   this.configurationVersion = stream.readUint8();
   tmp_byte = stream.readUint8();
+  globalThis.console.log(this.configurationVersion, tmp_byte);
   this.general_profile_space = tmp_byte >> 6;
   this.general_tier_flag = (tmp_byte & 0x20) >> 5;
   this.general_profile_idc = tmp_byte & 0x1f;
@@ -5752,7 +5753,7 @@ BoxParser.hvcCBox.prototype.write = function (stream) {
   stream.writeUint8(this.configurationVersion);
   stream.writeUint8(
     (this.general_profile_space << (6 + this.general_tier_flag)) << (5 + this.general_profile_idc)
-  );
+  );  
   stream.writeUint32(this.general_profile_compatibility);
   stream.writeUint8Array(this.general_constraint_indicator);
   stream.writeUint8(this.general_level_idc);

@@ -15,6 +15,20 @@ fn assert_snapshot(path: &Path, contents: &[u8]) {
     }
 }
 
+fn get_track_description(track: &mp4::TrakBox) -> Vec<u8> {
+    if let Some(ref av01) = track.mdia.minf.stbl.stsd.av01 {
+        av01.av1c.raw.clone()
+    } else if let Some(ref avc1) = track.mdia.minf.stbl.stsd.avc1 {
+        avc1.avcc.raw.clone()
+    } else if let Some(ref hvc1) = track.mdia.minf.stbl.stsd.hvc1 {
+        hvc1.hvcc.raw.clone()
+    } else if let Some(ref vp09) = track.mdia.minf.stbl.stsd.vp09 {
+        vp09.vpcc.raw.clone()
+    } else {
+        Vec::new()
+    }
+}
+
 fn assert_video_snapshot(file_path: &str) {
     const BASE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/samples");
     let base_path = Path::new(BASE);
@@ -29,10 +43,11 @@ fn assert_video_snapshot(file_path: &str) {
             assert_snapshot(
                 &base_path.join(format!("{}.track_{id}.json", file_path)),
                 format!(
-                    r#"{{ "width": {}, "height": {}, "num_samples": {} }}"#,
+                    r#"{{ "width": {}, "height": {}, "num_samples": {}, "description": {:?} }}"#,
                     track.width,
                     track.height,
                     track.samples.len(),
+                    get_track_description(track.trak(&video)),
                 )
                 .as_bytes(),
             );
