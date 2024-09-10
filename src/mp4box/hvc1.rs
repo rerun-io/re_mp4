@@ -37,7 +37,7 @@ impl Default for Hvc1Box {
 
 impl Hvc1Box {
     pub fn get_type(&self) -> BoxType {
-        BoxType::Hev1Box
+        BoxType::Hvc1Box
     }
 
     pub fn get_size(&self) -> u64 {
@@ -92,7 +92,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for Hvc1Box {
         let BoxHeader { name, size: s } = header;
         if s > size {
             return Err(Error::InvalidData(
-                "hev1 box contains a box with a larger size than it",
+                "hvc1 box contains a box with a larger size than it",
             ));
         }
         if name == BoxType::HvcCBox {
@@ -206,8 +206,8 @@ impl<R: Read + Seek> ReadBox<&mut R> for HvcCBox {
     fn read_box(reader: &mut R, _size: u64) -> Result<Self> {
         let configuration_version = reader.read_u8()?;
         let params = reader.read_u8()?;
-        let general_profile_space = params & 0b11000000 >> 6;
-        let general_tier_flag = (params & 0b00100000 >> 5) > 0;
+        let general_profile_space = params >> 6;
+        let general_tier_flag = ((params & 0b00100000) >> 5) > 0;
         let general_profile_idc = params & 0b00011111;
 
         let general_profile_compatibility_flags = reader.read_u32::<BigEndian>()?;

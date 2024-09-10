@@ -43,7 +43,8 @@ fn assert_video_snapshot(file_path: &str) {
             assert_snapshot(
                 &base_path.join(format!("{}.track_{id}.json", file_path)),
                 format!(
-                    r#"{{ "width": {}, "height": {}, "num_samples": {}, "description": {:?} }}"#,
+                    r#"{{ "codec": {:?}, "width": {}, "height": {}, "num_samples": {}, "description": {:?} }}"#,
+                    track.codec_string(&video).unwrap_or("unknown".to_string()),
                     track.width,
                     track.height,
                     track.samples.len(),

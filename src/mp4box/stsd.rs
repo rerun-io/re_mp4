@@ -60,8 +60,8 @@ impl StsdBox {
             size += av01.box_size();
         } else if let Some(ref avc1) = self.avc1 {
             size += avc1.box_size();
-        } else if let Some(ref hev1) = self.hvc1 {
-            size += hev1.box_size();
+        } else if let Some(ref hvc1) = self.hvc1 {
+            size += hvc1.box_size();
         } else if let Some(ref vp09) = self.vp09 {
             size += vp09.box_size();
         } else if let Some(ref mp4a) = self.mp4a {
@@ -103,6 +103,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for StsdBox {
         let mut av01 = None;
         let mut avc1 = None;
         let mut hvc1 = None;
+        let mut vp08 = None;
         let mut vp09 = None;
         let mut mp4a = None;
         let mut tx3g = None;
@@ -122,13 +123,16 @@ impl<R: Read + Seek> ReadBox<&mut R> for StsdBox {
             }
             // According to MPEG-4 part 15, sections 5.4.2.1.2 and 5.4.4 (or the whole 5.4 section in general),
             // the Avc1Box and Avc3Box are identical, but the Avc3Box is used in some cases.
-            BoxType::Avc1Box | BoxType::Avc3Box => {
+            BoxType::Avc1Box => {
                 avc1 = Some(Avc1Box::read_box(reader, s)?);
             }
-            BoxType::Hev1Box | BoxType::Hvc1Box => {
+            BoxType::Hvc1Box => {
                 hvc1 = Some(Hvc1Box::read_box(reader, s)?);
             }
-            BoxType::Vp08Box | BoxType::Vp09Box => {
+            BoxType::Vp08Box => {
+                vp08 = Some(Vp08Box::read_box(reader, s)?);
+            }
+            BoxType::Vp09Box => {
                 vp09 = Some(Vp09Box::read_box(reader, s)?);
             }
             BoxType::Mp4aBox => {

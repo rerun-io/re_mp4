@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt::Write as _;
 use std::io::SeekFrom;
 use std::io::{Read, Seek};
 
@@ -403,6 +404,87 @@ impl Track {
     pub fn read_sample(&self, sample_id: u32) -> &[u8] {
         let sample = &self.samples[sample_id as usize];
         &self.data[sample.offset as usize..(sample.offset + sample.size) as usize]
+    }
+
+    pub fn codec_string(&self, mp4: &Mp4) -> Option<String> {
+        let sample_description = &self.trak(mp4).mdia.minf.stbl.stsd;
+
+        let s = if let Some(Av01Box { av1c, .. }) = &sample_description.av01 {
+            let profile = av1c.profile;
+            let level = av1c.level;
+            let tier = if av1c.tier == 0 { "M" } else { "H" };
+            let bit_depth = av1c.bit_depth;
+
+            format!("av01.{profile}.{level:02}{tier}.{bit_depth:02}")
+        } else if let Some(Avc1Box { avcc, .. }) = &sample_description.avc1 {
+            let profile = avcc.avc_profile_indication;
+            let constraint = avcc.profile_compatibility;
+            let level = avcc.avc_level_indication;
+
+            format!("avc1.{profile:02X}{constraint:02X}{level:02X}")
+        } else if let Some(Hvc1Box { hvcc, .. }) = &sample_description.hvc1 {
+            let mut codec = "hvc1".to_string();
+            match hvcc.general_profile_space {
+                0 => {}
+                1 => codec.push_str(".A"),
+                2 => codec.push_str(".B"),
+                3 => codec.push_str(".C"),
+                _ => {}
+            }
+            write!(&mut codec, ".{}", hvcc.general_profile_idc).ok();
+
+            let mut val = hvcc.general_profile_compatibility_flags;
+            let mut reversed = 0;
+            for i in 0..32 {
+                reversed |= val & 1;
+                if i == 31 {
+                    break;
+                }
+                reversed <<= 1;
+                val >>= 1;
+            }
+            write!(&mut codec, ".{:X}", reversed).ok();
+
+            if hvcc.general_tier_flag {
+                codec.push_str(".H");
+            } else {
+                codec.push_str(".L");
+            }
+            write!(&mut codec, "{}", hvcc.general_level_idc).ok();
+
+            let mut constraint = [0u8; 6];
+            constraint.copy_from_slice(&hvcc.general_constraint_indicator_flag.to_be_bytes()[2..]);
+            let mut has_byte = false;
+            let mut i = 5isize;
+            while i >= 0 {
+                let v = constraint[i as usize];
+                if v > 0 || has_byte {
+                    write!(&mut codec, ".{v:00X}").ok();
+                    has_byte = true;
+                }
+                i -= 1;
+            }
+
+            codec
+        } else if let Some(Vp09Box { vpcc, .. }) = &sample_description.vp09 {
+            let profile = vpcc.profile;
+            let level = vpcc.level;
+            let bit_depth = vpcc.bit_depth;
+            let chroma_subsampling = vpcc.chroma_subsampling;
+            let color_range = if vpcc.video_full_range_flag {
+                "01"
+            } else {
+                "00"
+            };
+
+            format!(
+                "vp09.{profile:02}.{level:02}.{bit_depth:02}.{chroma_subsampling:02}.{color_range}"
+            )
+        } else {
+            return None;
+        };
+
+        Some(s)
     }
 }
 

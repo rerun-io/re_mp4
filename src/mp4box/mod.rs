@@ -105,6 +105,7 @@ pub(crate) mod trun;
 pub(crate) mod tx3g;
 pub(crate) mod udta;
 pub(crate) mod vmhd;
+pub(crate) mod vp08;
 pub(crate) mod vp09;
 pub(crate) mod vpcc;
 
@@ -150,6 +151,7 @@ pub use trun::TrunBox;
 pub use tx3g::Tx3gBox;
 pub use udta::UdtaBox;
 pub use vmhd::VmhdBox;
+pub use vp08::Vp08Box;
 pub use vp09::Vp09Box;
 pub use vpcc::VpccBox;
 
@@ -226,19 +228,19 @@ boxtype! {
     UrlBox  => 0x75726C20,
     SmhdBox => 0x736d6864,
     Avc1Box => 0x61766331,
-    Avc3Box => 0x61766333,
+    // Avc3Box => 0x61766333,
     AvcCBox => 0x61766343,
     Av01Box => 0x61763031,
     Av1CBox => 0x61763143,
-    Hev1Box => 0x68657631,
+    // Hev1Box => 0x68657631,
     Hvc1Box => 0x68766331,
     HvcCBox => 0x68766343,
     Mp4aBox => 0x6d703461,
     EsdsBox => 0x65736473,
     Tx3gBox => 0x74783367,
     VpccBox => 0x76706343,
-    Vp09Box => 0x76703039,
     Vp08Box => 0x76703038,
+    Vp09Box => 0x76703039,
     DataBox => 0x64617461,
     IlstBox => 0x696c7374,
     NameBox => 0xa96e616d,

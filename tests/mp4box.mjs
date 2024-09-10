@@ -5336,6 +5336,7 @@ BoxParser.hev1SampleEntry.prototype.getCodec = BoxParser.hvc1SampleEntry.prototy
   function () {
     var i;
     var baseCodec = BoxParser.SampleEntry.prototype.getCodec.call(this);
+    globalThis.console.log("baseCodec", baseCodec);
     if (this.hvcC) {
       baseCodec += ".";
       switch (this.hvcC.general_profile_space) {
@@ -5364,6 +5365,7 @@ BoxParser.hev1SampleEntry.prototype.getCodec = BoxParser.hvc1SampleEntry.prototy
       }
       baseCodec += BoxParser.decimalToHex(reversed, 0);
       baseCodec += ".";
+      globalThis.console.log("general_tier_flag", this.hvcC.general_tier_flag);
       if (this.hvcC.general_tier_flag === 0) {
         baseCodec += "L";
       } else {
@@ -5753,7 +5755,7 @@ BoxParser.hvcCBox.prototype.write = function (stream) {
   stream.writeUint8(this.configurationVersion);
   stream.writeUint8(
     (this.general_profile_space << (6 + this.general_tier_flag)) << (5 + this.general_profile_idc)
-  );  
+  );
   stream.writeUint32(this.general_profile_compatibility);
   stream.writeUint8Array(this.general_constraint_indicator);
   stream.writeUint8(this.general_level_idc);
