@@ -466,20 +466,18 @@ impl Track {
             }
 
             codec
+        } else if let Some(Vp08Box { vpcc, .. }) = &sample_description.vp08 {
+            let profile = vpcc.profile;
+            let level = vpcc.level;
+            let bit_depth = vpcc.bit_depth;
+
+            format!("vp08.{profile:02}.{level:02}.{bit_depth:02}")
         } else if let Some(Vp09Box { vpcc, .. }) = &sample_description.vp09 {
             let profile = vpcc.profile;
             let level = vpcc.level;
             let bit_depth = vpcc.bit_depth;
-            let chroma_subsampling = vpcc.chroma_subsampling;
-            let color_range = if vpcc.video_full_range_flag {
-                "01"
-            } else {
-                "00"
-            };
 
-            format!(
-                "vp09.{profile:02}.{level:02}.{bit_depth:02}.{chroma_subsampling:02}.{color_range}"
-            )
+            format!("vp09.{profile:02}.{level:02}.{bit_depth:02}")
         } else {
             return None;
         };

@@ -2,9 +2,7 @@ use byteorder::{BigEndian, ReadBytesExt};
 use serde::Serialize;
 use std::io::{Read, Seek};
 
-use crate::mp4box::vp09::Vp09Box;
 use crate::mp4box::*;
-use crate::mp4box::{avc1::Avc1Box, hvc1::Hvc1Box, mp4a::Mp4aBox, tx3g::Tx3gBox};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
 pub struct StsdBox {
@@ -23,6 +21,10 @@ pub struct StsdBox {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hvc1: Option<Hvc1Box>,
 
+    /// VP8 video codec
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub vp08: Option<Vp08Box>,
+
     /// VP9 video codec
     #[serde(skip_serializing_if = "Option::is_none")]
     pub vp09: Option<Vp09Box>,
@@ -38,7 +40,11 @@ pub struct StsdBox {
 
 impl StsdBox {
     pub fn kind(&self) -> TrackKind {
-        if self.av01.is_some() || self.avc1.is_some() || self.hvc1.is_some() || self.vp09.is_some()
+        if self.av01.is_some()
+            || self.avc1.is_some()
+            || self.hvc1.is_some()
+            || self.vp08.is_some()
+            || self.vp09.is_some()
         {
             TrackKind::Video
         } else if self.mp4a.is_some() {
@@ -152,6 +158,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for StsdBox {
             av01,
             avc1,
             hvc1,
+            vp08,
             vp09,
             mp4a,
             tx3g,
