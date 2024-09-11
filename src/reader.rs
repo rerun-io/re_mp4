@@ -99,6 +99,9 @@ impl Mp4 {
         &self.tracks
     }
 
+    /// Process each `trak` box to obtain a list of samples for each track.
+    ///
+    /// Note that the list will be incomplete if the file is fragmented.
     fn build_tracks(&mut self) -> HashMap<u64, Track> {
         let mut tracks = HashMap::new();
 
@@ -113,6 +116,8 @@ impl Mp4 {
             let mut last_sample_in_stts_run = -1i64;
             let mut stts_run_index = -1i64;
             let mut last_stss_index = 0;
+            let mut last_sample_in_ctts_run = -1i64;
+            let mut ctts_run_index = -1i64;
 
             let mut samples = Vec::<Sample>::new();
 
@@ -178,13 +183,30 @@ impl Mp4 {
                 let offset = get_sample_chunk_offset(stbl, chunk_index) + offset_in_chunk;
                 offset_in_chunk += size;
 
-                let timestamp = if sample_n > 0 {
+                // DTS (decoding timestamp)
+                let dts = if sample_n > 0 {
                     samples[sample_n - 1].duration =
                         stts.entries[stts_run_index as usize].sample_delta as u64;
 
                     samples[sample_n - 1].timestamp + samples[sample_n - 1].duration
                 } else {
                     0
+                };
+
+                // CTS (composition timestamp)
+                let cts = if let Some(ctts) = &stbl.ctts {
+                    if sample_n as i64 >= last_sample_in_ctts_run {
+                        ctts_run_index += 1;
+                        if last_sample_in_ctts_run < 0 {
+                            last_sample_in_ctts_run = 0;
+                        }
+                        last_sample_in_ctts_run +=
+                            ctts.entries[ctts_run_index as usize].sample_count as i64;
+                    }
+
+                    dts + ctts.entries[ctts_run_index as usize].sample_offset as u64
+                } else {
+                    dts
                 };
 
                 let is_sync = if let Some(stss) = &stbl.stss {
@@ -205,7 +227,7 @@ impl Mp4 {
                     timescale,
                     size,
                     offset,
-                    timestamp,
+                    timestamp: cts,
                     is_sync,
                     duration: 0, // filled once we know next sample timestamp
                 });
@@ -235,13 +257,14 @@ impl Mp4 {
         tracks
     }
 
+    /// In case the input file is fragmented, it will contain one or more `moof` boxes,
+    /// which must be processed to obtain the full list of samples for each track.
     fn update_sample_list(&mut self, tracks: &mut HashMap<u64, Track>) {
-        // if the input file is fragmented and fetched in multiple downloads, we need to update the list of samples
+        let mut last_run_position = 0;
+
         for moof in &self.moofs {
             // process moof to update sample list
             for traf in &moof.trafs {
-                let mut last_run_position = 0;
-
                 let track = tracks.get_mut(&(traf.tfhd.track_id as u64)).unwrap();
                 let trak = self
                     .moov
@@ -290,16 +313,23 @@ impl Mp4 {
                             sample_flags = trun.first_sample_flags.unwrap_or(sample_flags);
                         }
 
-                        let mut timestamp = 0;
+                        let mut dts = 0;
                         if track.first_traf_merged || sample_n > 0 {
                             let prev = &track.samples[track.samples.len() - 1];
-                            timestamp = prev.timestamp + prev.duration;
+                            dts = prev.timestamp + prev.duration;
                         } else {
                             if let Some(tfdt) = &traf.tfdt {
-                                timestamp = tfdt.base_media_decode_time;
+                                dts = tfdt.base_media_decode_time;
                             }
                             track.first_traf_merged = true;
                         }
+
+                        let cts = if trun.flags & TrunBox::FLAG_SAMPLE_CTS != 0 {
+                            dts + trun.sample_cts.get(sample_n).copied().unwrap_or(0) as u64
+                        } else {
+                            dts
+                        };
+
                         let duration = trun
                             .sample_durations
                             .get(sample_n)
@@ -307,10 +337,13 @@ impl Mp4 {
                             .unwrap_or(default_sample_duration)
                             as u64;
 
-                        let bdop = traf.tfhd.flags & TfhdBox::FLAG_BASE_DATA_OFFSET != 0;
-                        let dbim = traf.tfhd.flags & TfhdBox::FLAG_DEFAULT_BASE_IS_MOOF != 0;
-                        let bdo = if !bdop {
-                            if !dbim {
+                        let base_data_offset_present =
+                            traf.tfhd.flags & TfhdBox::FLAG_BASE_DATA_OFFSET != 0;
+                        let default_base_is_moof =
+                            traf.tfhd.flags & TfhdBox::FLAG_DEFAULT_BASE_IS_MOOF != 0;
+                        let data_offset_present = trun.flags & TrunBox::FLAG_DATA_OFFSET != 0;
+                        let base_data_offset = if !base_data_offset_present {
+                            if !default_base_is_moof {
                                 if sample_n == 0 {
                                     // the first sample in the track fragment
                                     moof.start // the position of the first byte of the enclosing Movie Fragment Box
@@ -331,7 +364,11 @@ impl Mp4 {
                                 .unwrap_or(default_sample_size) as u64;
 
                         let sample_offset = if traf_idx == 0 && sample_n == 0 {
-                            bdo + trun.data_offset.unwrap_or(0) as u64
+                            if data_offset_present {
+                                base_data_offset + trun.data_offset.unwrap_or(0) as u64
+                            } else {
+                                base_data_offset
+                            }
                         } else {
                             last_run_position
                         };
@@ -344,7 +381,7 @@ impl Mp4 {
                             size: sample_size,
                             offset: sample_offset,
                             timescale: trak.mdia.mdhd.timescale as u64,
-                            timestamp,
+                            timestamp: cts,
                             duration,
                         });
                     }
@@ -353,21 +390,38 @@ impl Mp4 {
         }
     }
 
+    /// For every track, combine its samples into a single contiguous buffer.
+    ///
+    /// This also updates sample offsets and the track duration if needed.
+    ///
+    /// After this function is called, each track's [`Track::data`] may only be indexed by one of its samples' [`Sample::offset`]s.
     fn load_track_data<R: Read + Seek>(&mut self, reader: &mut R) -> Result<()> {
         for track in self.tracks.values_mut() {
-            let mut first_sample_offset = None;
             for sample in &mut track.samples {
-                reader.seek(SeekFrom::Start(sample.offset))?;
+                let data_offset = track.data.len();
 
-                let start = track.data.len();
                 track
                     .data
-                    .extend(std::iter::repeat(0).take(sample.size as usize));
-                reader.read_exact(&mut track.data[start..])?;
+                    .resize(track.data.len() + sample.size as usize, 0);
 
-                let first_sample_offset = *first_sample_offset.get_or_insert(sample.offset);
-                sample.offset -= first_sample_offset;
+                // at this point, `sample.offset` is the offset of the first byte of the sample in the file
+                reader.seek(SeekFrom::Start(sample.offset))?;
+                reader
+                    .read_exact(&mut track.data[data_offset..data_offset + sample.size as usize])?;
+
+                // we want it to be the offset of the sample in the combined track data
+                sample.offset = data_offset as u64;
             }
+
+            track.duration = if track.duration == 0 {
+                track
+                    .samples
+                    .last()
+                    .map(|v| v.timestamp + v.duration)
+                    .unwrap_or_default()
+            } else {
+                track.duration
+            };
         }
 
         Ok(())
@@ -523,6 +577,14 @@ impl Sample {
     pub fn duration_ms(&self) -> f64 {
         (self.duration as f64 * 1e3) / self.timescale as f64
     }
+
+    pub fn timestamp_us(&self) -> f64 {
+        (self.timestamp as f64 * 1e6) / self.timescale as f64
+    }
+
+    pub fn duration_us(&self) -> f64 {
+        (self.duration as f64 * 1e6) / self.timescale as f64
+    }
 }
 
 impl Mp4 {
@@ -541,8 +603,7 @@ impl std::fmt::Debug for Track {
         f.debug_struct("Track")
             .field("first_traf_merged", &self.first_traf_merged)
             .field("kind", &self.kind)
-            .field("samples", &self.samples)
-            .field("data.len", &self.data.len())
+            .field("duration_ms", &self.duration_ms())
             .finish()
     }
 }
