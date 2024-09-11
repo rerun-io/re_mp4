@@ -128,9 +128,39 @@ const file = process.argv[2];
 const video = unboxVideo(fs.readFileSync(file).buffer);
 console.log(video.videoDecoderConfig);
 
-let num_samples = 0;
+fs.writeFileSync(file.replace(".mp4", ".bin"), new Uint8Array(video.data));
+
+let timeOffset = -1;
+let out = "[";
 for (const segment of video.segments) {
-  num_samples += segment.samples.length;
+  const first_sample = segment.samples[0];
+  if (timeOffset < 0) {
+    timeOffset = first_sample.timestamp / 1e3;
+  }
+
+  out += [
+    "\n    Sample {",
+    "        is_sync: true,",
+    `        size: ${first_sample.byteLength},`,
+    `        offset: ${first_sample.byteOffset},`,
+    `        timestamp: ${first_sample.timestamp / 1e3 - timeOffset},`,
+    `        duration: ${first_sample.duration / 1e3},`,
+    "    },",
+  ].join("\n");
+  for (let i = 1; i < segment.samples.length; i++) {
+    const sample = segment.samples[i];
+    out += [
+      "\n    Sample {",
+      "        is_sync: false,",
+      `        size: ${sample.byteLength},`,
+      `        offset: ${sample.byteOffset},`,
+      `        timestamp: ${sample.timestamp / 1e3 - timeOffset},`,
+      `        duration: ${sample.duration / 1e3},`,
+      "    },",
+    ].join("\n");
+  }
 }
-console.log(num_samples);
+out += "\n]";
+
+fs.writeFileSync(file.replace(".mp4", ".segments"), out);
 
