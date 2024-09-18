@@ -1,16 +1,16 @@
 [package]
-name = "mp4"
-version = "0.14.0"
-authors = ["Alf <alf.g.jr@gmail.com>"]
+name = "re_mp4"
+version = "0.1.0"
+authors = ["rerun.io <opensource@rerun.io>"]
 edition = "2018"
-description = "MP4 reader and writer library in Rust."
-documentation = "https://docs.rs/mp4"
+description = "MP4 parser"
+documentation = "https://docs.rs/re_mp4"
 readme = "README.md"
-homepage = "https://github.com/alfg/mp4-rust"
-repository = "https://github.com/alfg/mp4-rust"
+homepage = "https://github.com/rerun-io/mp4"
+repository = "https://github.com/rerun-io/mp4"
 keywords = ["mp4", "iso-mp4", "isobmff", "video", "multimedia"]
 license = "MIT"
-include = ["src", "benches", "Cargo.toml", "README", "LICENSE"]
+include = ["src", "Cargo.toml", "README", "LICENSE"]
 
 [dependencies]
 thiserror = "^1.0"

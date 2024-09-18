@@ -26,7 +26,7 @@ fn assert_snapshot(snapshot_path: &Path, contents: &[u8]) {
     }
 }
 
-fn get_track_description(track: &mp4::TrakBox) -> Vec<u8> {
+fn get_track_description(track: &re_mp4::TrakBox) -> Vec<u8> {
     if let Some(ref av01) = track.mdia.minf.stbl.stsd.av01 {
         av01.av1c.raw.clone()
     } else if let Some(ref avc1) = track.mdia.minf.stbl.stsd.avc1 {
@@ -44,9 +44,9 @@ const BASE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/samples");
 fn assert_video_snapshot(file_path: &str) {
     let base_path = Path::new(BASE);
     let bytes = std::fs::read(base_path.join(file_path)).unwrap();
-    let video = mp4::read(&bytes).unwrap();
+    let video = re_mp4::read(&bytes).unwrap();
     for (id, track) in video.tracks() {
-        if track.kind == mp4::TrackKind::Video {
+        if track.kind == re_mp4::TrackKind::Video {
             assert_snapshot(
                 &base_path.join(format!("{}.track_{id}.bin", file_path)),
                 &track.data,
