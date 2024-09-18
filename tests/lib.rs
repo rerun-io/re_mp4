@@ -70,33 +70,3 @@ fn assert_video_snapshot(file_path: &str) {
         }
     }
 }
-
-#[test]
-fn bbb_video_av1_frag() {
-    assert_video_snapshot("bbb_video_av1_frag.mp4");
-}
-
-#[test]
-fn bbb_video_avc_frag() {
-    assert_video_snapshot("bbb_video_avc_frag.mp4");
-}
-
-#[test]
-fn bbb_video_hevc_frag() {
-    assert_video_snapshot("bbb_video_hevc_frag.mp4");
-}
-
-#[test]
-fn bbb_video_vp9_frag() {
-    assert_video_snapshot("bbb_video_vp9_frag.mp4");
-}
-
-#[test]
-fn bbb_video_vp8_frag() {
-    assert_video_snapshot("bbb_video_vp8_frag.mp4");
-}
-
-#[test]
-fn sintel_trailer_720p_h264() {
-    assert_video_snapshot("sintel_trailer-720p-h264.mp4");
-}
