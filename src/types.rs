@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use std::convert::TryFrom;
 use std::fmt;
 
-use crate::mp4box::{BoxType, Mp4Box};
+use crate::mp4box::BoxType;
 use crate::{Error, Result};
 
 pub use bytes::Bytes;
@@ -73,14 +73,14 @@ impl FixedPointU16 {
 }
 
 impl fmt::Debug for BoxType {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let fourcc: FourCC = From::from(*self);
         write!(f, "{fourcc}")
     }
 }
 
 impl fmt::Display for BoxType {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let fourcc: FourCC = From::from(*self);
         write!(f, "{fourcc}")
     }
@@ -139,7 +139,7 @@ impl From<BoxType> for FourCC {
 }
 
 impl fmt::Debug for FourCC {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let code: u32 = self.into();
         let string = String::from_utf8_lossy(&self.value[..]);
         write!(f, "{string} / {code:#010X}")
@@ -147,7 +147,7 @@ impl fmt::Debug for FourCC {
 }
 
 impl fmt::Display for FourCC {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", String::from_utf8_lossy(&self.value[..]))
     }
 }
@@ -173,7 +173,7 @@ pub enum TrackKind {
 }
 
 impl fmt::Display for TrackKind {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match self {
             Self::Video => DISPLAY_TYPE_VIDEO,
             Self::Audio => DISPLAY_TYPE_AUDIO,
@@ -233,7 +233,7 @@ pub enum MediaType {
 }
 
 impl fmt::Display for MediaType {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s: &str = self.into();
         write!(f, "{s}")
     }
@@ -304,7 +304,7 @@ impl TryFrom<(u8, u8)> for AvcProfile {
 }
 
 impl fmt::Display for AvcProfile {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let profile = match self {
             Self::AvcConstrainedBaseline => "Constrained Baseline",
             Self::AvcBaseline => "Baseline",
@@ -414,7 +414,7 @@ impl TryFrom<u8> for AudioObjectType {
 }
 
 impl fmt::Display for AudioObjectType {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let type_str = match self {
             Self::AacMain => "AAC Main",
             Self::AacLowComplexity => "LC",
@@ -550,7 +550,7 @@ impl TryFrom<u8> for ChannelConfig {
 }
 
 impl fmt::Display for ChannelConfig {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match self {
             Self::Mono => "mono",
             Self::Stereo => "stereo",
@@ -635,7 +635,7 @@ impl PartialEq for Mp4Sample {
 }
 
 impl fmt::Display for Mp4Sample {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "start_time {}, duration {}, rendering_offset {}, is_sync {}, length {}",
@@ -695,17 +695,17 @@ pub enum MetadataKey {
 
 pub trait Metadata<'a> {
     /// The video's title
-    fn title(&self) -> Option<Cow<str>>;
+    fn title(&self) -> Option<Cow<'_, str>>;
     /// The video's release year
     fn year(&self) -> Option<u32>;
     /// The video's poster (cover art)
     fn poster(&self) -> Option<&[u8]>;
     /// The video's summary
-    fn summary(&self) -> Option<Cow<str>>;
+    fn summary(&self) -> Option<Cow<'_, str>>;
 }
 
 impl<'a, T: Metadata<'a>> Metadata<'a> for &'a T {
-    fn title(&self) -> Option<Cow<str>> {
+    fn title(&self) -> Option<Cow<'_, str>> {
         (**self).title()
     }
 
@@ -717,13 +717,13 @@ impl<'a, T: Metadata<'a>> Metadata<'a> for &'a T {
         (**self).poster()
     }
 
-    fn summary(&self) -> Option<Cow<str>> {
+    fn summary(&self) -> Option<Cow<'_, str>> {
         (**self).summary()
     }
 }
 
 impl<'a, T: Metadata<'a>> Metadata<'a> for Option<T> {
-    fn title(&self) -> Option<Cow<str>> {
+    fn title(&self) -> Option<Cow<'_, str>> {
         self.as_ref().and_then(|t| t.title())
     }
 
@@ -735,7 +735,7 @@ impl<'a, T: Metadata<'a>> Metadata<'a> for Option<T> {
         self.as_ref().and_then(|t| t.poster())
     }
 
-    fn summary(&self) -> Option<Cow<str>> {
+    fn summary(&self) -> Option<Cow<'_, str>> {
         self.as_ref().and_then(|t| t.summary())
     }
 }

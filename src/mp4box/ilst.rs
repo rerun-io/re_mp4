@@ -8,7 +8,7 @@ use serde::Serialize;
 use crate::mp4box::data::DataBox;
 use crate::mp4box::{
     box_start, skip_box, skip_bytes_to, BigEndian, BoxHeader, BoxType, DataType, Error, Metadata,
-    MetadataKey, Mp4Box, ReadBox, ReadBytesExt, Result, HEADER_SIZE,
+    MetadataKey, Mp4Box, ReadBox, Result, HEADER_SIZE,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
@@ -150,7 +150,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for IlstItemBox {
 }
 
 impl<'a> Metadata<'a> for IlstBox {
-    fn title(&self) -> Option<Cow<str>> {
+    fn title(&self) -> Option<Cow<'_, str>> {
         self.items.get(&MetadataKey::Title).map(item_to_str)
     }
 
@@ -162,7 +162,7 @@ impl<'a> Metadata<'a> for IlstBox {
         self.items.get(&MetadataKey::Poster).map(item_to_bytes)
     }
 
-    fn summary(&self) -> Option<Cow<str>> {
+    fn summary(&self) -> Option<Cow<'_, str>> {
         self.items.get(&MetadataKey::Summary).map(item_to_str)
     }
 }
@@ -171,7 +171,7 @@ fn item_to_bytes(item: &IlstItemBox) -> &[u8] {
     &item.data.data
 }
 
-fn item_to_str(item: &IlstItemBox) -> Cow<str> {
+fn item_to_str(item: &IlstItemBox) -> Cow<'_, str> {
     String::from_utf8_lossy(&item.data.data)
 }
 
