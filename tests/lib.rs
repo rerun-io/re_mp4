@@ -66,7 +66,7 @@ fn assert_video_snapshot(file_path: &str) {
                     track.width,
                     track.height,
                     track.samples.len(),
-                    get_track_description(track.trak(&video)),
+                    get_track_description(track.trak(&video).unwrap()),
                 )
                 .as_bytes(),
             );

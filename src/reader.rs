@@ -449,12 +449,11 @@ impl Track {
         (self.duration as f64 * 1e3) / self.timescale as f64
     }
 
-    pub fn trak<'a>(&self, mp4: &'a Mp4) -> &'a TrakBox {
+    pub fn trak<'a>(&self, mp4: &'a Mp4) -> Option<&'a TrakBox> {
         mp4.moov
             .traks
             .iter()
             .find(|trak| trak.tkhd.track_id == self.track_id)
-            .unwrap()
     }
 
     pub fn read_sample(&self, sample_id: u32) -> &[u8] {
@@ -463,7 +462,7 @@ impl Track {
     }
 
     pub fn raw_codec_config(&self, mp4: &Mp4) -> Option<Vec<u8>> {
-        let sample_description = &self.trak(mp4).mdia.minf.stbl.stsd;
+        let sample_description = &self.trak(mp4)?.mdia.minf.stbl.stsd;
 
         if let Some(Av01Box { av1c, .. }) = &sample_description.av01 {
             Some(av1c.raw.clone())
@@ -481,7 +480,7 @@ impl Track {
     }
 
     pub fn codec_string(&self, mp4: &Mp4) -> Option<String> {
-        let sample_description = &self.trak(mp4).mdia.minf.stbl.stsd;
+        let sample_description = &self.trak(mp4)?.mdia.minf.stbl.stsd;
 
         let s = if let Some(Av01Box { av1c, .. }) = &sample_description.av01 {
             let profile = av1c.profile;
