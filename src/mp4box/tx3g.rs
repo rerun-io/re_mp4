@@ -2,7 +2,7 @@ use byteorder::{BigEndian, ReadBytesExt};
 use serde::Serialize;
 use std::io::{Read, Seek};
 
-use crate::mp4box::*;
+use crate::mp4box::{box_start, skip_bytes_to, BoxType, Mp4Box, ReadBox, Result, HEADER_SIZE};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Tx3gBox {
@@ -25,7 +25,7 @@ pub struct RgbaColor {
 
 impl Default for Tx3gBox {
     fn default() -> Self {
-        Tx3gBox {
+        Self {
             data_reference_index: 0,
             display_flags: 0,
             horizontal_justification: 1,
@@ -62,7 +62,7 @@ impl Mp4Box for Tx3gBox {
     }
 
     fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(&self).unwrap())
+        Ok(serde_json::to_string(&self).expect("Failed to convert to JSON"))
     }
 
     fn summary(&self) -> Result<String> {
@@ -114,7 +114,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for Tx3gBox {
 
         skip_bytes_to(reader, start + size)?;
 
-        Ok(Tx3gBox {
+        Ok(Self {
             data_reference_index,
             display_flags,
             horizontal_justification,

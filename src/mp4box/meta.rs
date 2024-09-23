@@ -4,7 +4,10 @@ use serde::Serialize;
 
 use crate::mp4box::hdlr::HdlrBox;
 use crate::mp4box::ilst::IlstBox;
-use crate::mp4box::*;
+use crate::mp4box::{
+    box_start, skip_box, BigEndian, BoxHeader, BoxType, Error, FourCC, Mp4Box, ReadBox,
+    ReadBytesExt, Result, SeekFrom, HEADER_EXT_SIZE, HEADER_SIZE,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(tag = "hdlr")]
@@ -46,7 +49,7 @@ impl MetaBox {
                     + data
                         .iter()
                         .map(|(_, data)| data.len() as u64 + HEADER_SIZE)
-                        .sum::<u64>()
+                        .sum::<u64>();
             }
         }
         size
@@ -63,12 +66,12 @@ impl Mp4Box for MetaBox {
     }
 
     fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(&self).unwrap())
+        Ok(serde_json::to_string(&self).expect("Failed to convert to JSON"))
     }
 
     fn summary(&self) -> Result<String> {
         let s = match self {
-            Self::Mdir { .. } => "hdlr=ilst".to_string(),
+            Self::Mdir { .. } => "hdlr=ilst".to_owned(),
             Self::Unknown { hdlr, data } => {
                 format!("hdlr={} data_len={}", hdlr.handler_type, data.len())
             }
@@ -140,53 +143,47 @@ impl<R: Read + Seek> ReadBox<&mut R> for MetaBox {
 
         let mut ilst = None;
 
-        match hdlr.handler_type {
-            MDIR => {
-                while current < end {
-                    // Get box header.
-                    let header = BoxHeader::read(reader)?;
-                    let BoxHeader { name, size: s } = header;
+        if hdlr.handler_type == MDIR {
+            while current < end {
+                // Get box header.
+                let header = BoxHeader::read(reader)?;
+                let BoxHeader { name, size: s } = header;
 
-                    match name {
-                        BoxType::IlstBox => {
-                            ilst = Some(IlstBox::read_box(reader, s)?);
-                        }
-                        _ => {
-                            // XXX warn!()
-                            skip_box(reader, s)?;
-                        }
+                match name {
+                    BoxType::IlstBox => {
+                        ilst = Some(IlstBox::read_box(reader, s)?);
                     }
-
-                    current = reader.stream_position()?;
+                    _ => {
+                        // XXX warn!()
+                        skip_box(reader, s)?;
+                    }
                 }
 
-                Ok(MetaBox::Mdir { ilst })
+                current = reader.stream_position()?;
             }
-            _ => {
-                let mut data = Vec::new();
 
-                while current < end {
-                    // Get box header.
-                    let header = BoxHeader::read(reader)?;
-                    let BoxHeader { name, size: s } = header;
+            Ok(Self::Mdir { ilst })
+        } else {
+            let mut data = Vec::new();
 
-                    match name {
-                        BoxType::HdlrBox => {
-                            skip_box(reader, s)?;
-                        }
-                        _ => {
-                            let mut box_data = vec![0; (s - HEADER_SIZE) as usize];
-                            reader.read_exact(&mut box_data)?;
+            while current < end {
+                // Get box header.
+                let header = BoxHeader::read(reader)?;
+                let BoxHeader { name, size: s } = header;
 
-                            data.push((name, box_data));
-                        }
-                    }
+                if name == BoxType::HdlrBox {
+                    skip_box(reader, s)?;
+                } else {
+                    let mut box_data = vec![0; (s - HEADER_SIZE) as usize];
+                    reader.read_exact(&mut box_data)?;
 
-                    current = reader.stream_position()?;
+                    data.push((name, box_data));
                 }
 
-                Ok(MetaBox::Unknown { hdlr, data })
+                current = reader.stream_position()?;
             }
+
+            Ok(Self::Unknown { hdlr, data })
         }
     }
 }

@@ -1,4 +1,7 @@
-use crate::mp4box::*;
+use crate::mp4box::{
+    box_start, read_box_header_ext, skip_bytes_to, BigEndian, BoxType, Read, ReadBox, ReadBytesExt,
+    Result, Seek, HEADER_EXT_SIZE, HEADER_SIZE,
+};
 use crate::Mp4Box;
 use serde::Serialize;
 
@@ -32,7 +35,7 @@ impl Mp4Box for VpccBox {
     }
 
     fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(&self).unwrap())
+        Ok(serde_json::to_string(&self).expect("Failed to convert to JSON"))
     }
 
     fn summary(&self) -> Result<String> {

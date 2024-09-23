@@ -3,7 +3,10 @@ use std::io::{Read, Seek};
 use serde::Serialize;
 
 use crate::mp4box::meta::MetaBox;
-use crate::mp4box::*;
+use crate::mp4box::{
+    box_start, skip_box, skip_bytes_to, BoxHeader, BoxType, Error, Mp4Box, ReadBox, Result,
+    HEADER_SIZE,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
 pub struct UdtaBox {
@@ -35,7 +38,7 @@ impl Mp4Box for UdtaBox {
     }
 
     fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(&self).unwrap())
+        Ok(serde_json::to_string(&self).expect("Failed to convert to JSON"))
     }
 
     fn summary(&self) -> Result<String> {
@@ -76,6 +79,6 @@ impl<R: Read + Seek> ReadBox<&mut R> for UdtaBox {
 
         skip_bytes_to(reader, start + size)?;
 
-        Ok(UdtaBox { meta })
+        Ok(Self { meta })
     }
 }

@@ -6,7 +6,10 @@ use byteorder::ByteOrder;
 use serde::Serialize;
 
 use crate::mp4box::data::DataBox;
-use crate::mp4box::*;
+use crate::mp4box::{
+    box_start, skip_box, skip_bytes_to, BigEndian, BoxHeader, BoxType, DataType, Error, Metadata,
+    MetadataKey, Mp4Box, ReadBox, Result, HEADER_SIZE,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
 pub struct IlstBox {
@@ -19,11 +22,7 @@ impl IlstBox {
     }
 
     pub fn get_size(&self) -> u64 {
-        let mut size = HEADER_SIZE;
-        for item in self.items.values() {
-            size += item.get_size();
-        }
-        size
+        HEADER_SIZE + self.items.values().map(|item| item.get_size()).sum::<u64>()
     }
 }
 
@@ -37,7 +36,7 @@ impl Mp4Box for IlstBox {
     }
 
     fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(&self).unwrap())
+        Ok(serde_json::to_string(&self).expect("Failed to convert to JSON"))
     }
 
     fn summary(&self) -> Result<String> {
@@ -88,7 +87,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for IlstBox {
 
         skip_bytes_to(reader, start + size)?;
 
-        Ok(IlstBox { items })
+        Ok(Self { items })
     }
 }
 
@@ -134,20 +133,18 @@ impl<R: Read + Seek> ReadBox<&mut R> for IlstItemBox {
             current = reader.stream_position()?;
         }
 
-        if data.is_none() {
+        let Some(data) = data else {
             return Err(Error::BoxNotFound(BoxType::DataBox));
-        }
+        };
 
         skip_bytes_to(reader, start + size)?;
 
-        Ok(IlstItemBox {
-            data: data.unwrap(),
-        })
+        Ok(Self { data })
     }
 }
 
 impl<'a> Metadata<'a> for IlstBox {
-    fn title(&self) -> Option<Cow<str>> {
+    fn title(&self) -> Option<Cow<'_, str>> {
         self.items.get(&MetadataKey::Title).map(item_to_str)
     }
 
@@ -159,7 +156,7 @@ impl<'a> Metadata<'a> for IlstBox {
         self.items.get(&MetadataKey::Poster).map(item_to_bytes)
     }
 
-    fn summary(&self) -> Option<Cow<str>> {
+    fn summary(&self) -> Option<Cow<'_, str>> {
         self.items.get(&MetadataKey::Summary).map(item_to_str)
     }
 }
@@ -168,7 +165,7 @@ fn item_to_bytes(item: &IlstItemBox) -> &[u8] {
     &item.data.data
 }
 
-fn item_to_str(item: &IlstItemBox) -> Cow<str> {
+fn item_to_str(item: &IlstItemBox) -> Cow<'_, str> {
     String::from_utf8_lossy(&item.data.data)
 }
 

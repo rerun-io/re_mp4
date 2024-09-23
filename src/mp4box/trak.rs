@@ -2,7 +2,10 @@ use serde::Serialize;
 use std::io::{Read, Seek};
 
 use crate::meta::MetaBox;
-use crate::mp4box::*;
+use crate::mp4box::{
+    box_start, skip_box, skip_bytes_to, BoxHeader, BoxType, Error, Mp4Box, ReadBox, Result,
+    HEADER_SIZE,
+};
 use crate::mp4box::{edts::EdtsBox, mdia::MdiaBox, tkhd::TkhdBox};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
@@ -44,7 +47,7 @@ impl Mp4Box for TrakBox {
     }
 
     fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(&self).unwrap())
+        Ok(serde_json::to_string(&self).expect("Failed to convert to JSON"))
     }
 
     fn summary(&self) -> Result<String> {
@@ -96,20 +99,20 @@ impl<R: Read + Seek> ReadBox<&mut R> for TrakBox {
             current = reader.stream_position()?;
         }
 
-        if tkhd.is_none() {
+        let Some(tkhd) = tkhd else {
             return Err(Error::BoxNotFound(BoxType::TkhdBox));
-        }
-        if mdia.is_none() {
+        };
+        let Some(mdia) = mdia else {
             return Err(Error::BoxNotFound(BoxType::MdiaBox));
-        }
+        };
 
         skip_bytes_to(reader, start + size)?;
 
-        Ok(TrakBox {
-            tkhd: tkhd.unwrap(),
+        Ok(Self {
+            tkhd,
             edts,
             meta,
-            mdia: mdia.unwrap(),
+            mdia,
         })
     }
 }

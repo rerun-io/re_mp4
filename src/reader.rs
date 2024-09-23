@@ -3,7 +3,11 @@ use std::fmt::Write as _;
 use std::io::SeekFrom;
 use std::io::{Read, Seek};
 
-use crate::*;
+use crate::{
+    skip_box, Av01Box, Avc1Box, BoxHeader, BoxType, EmsgBox, Error, FtypBox, Hvc1Box, MetaBox,
+    Metadata, MoofBox, MoovBox, ReadBox, Result, StblBox, TfhdBox, TrackKind, TrakBox, TrunBox,
+    Vp08Box, Vp09Box,
+};
 
 #[derive(Debug)]
 pub struct Mp4 {
@@ -72,16 +76,16 @@ impl Mp4 {
             current = reader.stream_position()?;
         }
 
-        if ftyp.is_none() {
+        let Some(ftyp) = ftyp else {
             return Err(Error::BoxNotFound(BoxType::FtypBox));
-        }
-        if moov.is_none() {
+        };
+        let Some(moov) = moov else {
             return Err(Error::BoxNotFound(BoxType::MoovBox));
-        }
+        };
 
-        let mut this = Mp4 {
-            ftyp: ftyp.unwrap(),
-            moov: moov.unwrap(),
+        let mut this = Self {
+            ftyp,
+            moov,
             moofs,
             emsgs,
             tracks: HashMap::new(),
@@ -396,6 +400,7 @@ impl Mp4 {
     ///
     /// After this function is called, each track's [`Track::data`] may only be indexed by one of its samples' [`Sample::offset`]s.
     fn load_track_data<R: Read + Seek>(&mut self, reader: &mut R) -> Result<()> {
+        #[allow(clippy::iter_over_hash_type)] // what we do in the iteration is not order-dependent
         for track in self.tracks.values_mut() {
             for sample in &mut track.samples {
                 let data_offset = track.data.len();
@@ -413,15 +418,13 @@ impl Mp4 {
                 sample.offset = data_offset as u64;
             }
 
-            track.duration = if track.duration == 0 {
-                track
+            if track.duration == 0 {
+                track.duration = track
                     .samples
                     .last()
                     .map(|v| v.timestamp + v.duration)
-                    .unwrap_or_default()
-            } else {
-                track.duration
-            };
+                    .unwrap_or_default();
+            }
         }
 
         Ok(())
@@ -447,12 +450,11 @@ impl Track {
         (self.duration as f64 * 1e3) / self.timescale as f64
     }
 
-    pub fn trak<'a>(&self, mp4: &'a Mp4) -> &'a TrakBox {
+    pub fn trak<'a>(&self, mp4: &'a Mp4) -> Option<&'a TrakBox> {
         mp4.moov
             .traks
             .iter()
             .find(|trak| trak.tkhd.track_id == self.track_id)
-            .unwrap()
     }
 
     pub fn read_sample(&self, sample_id: u32) -> &[u8] {
@@ -461,7 +463,7 @@ impl Track {
     }
 
     pub fn raw_codec_config(&self, mp4: &Mp4) -> Option<Vec<u8>> {
-        let sample_description = &self.trak(mp4).mdia.minf.stbl.stsd;
+        let sample_description = &self.trak(mp4)?.mdia.minf.stbl.stsd;
 
         if let Some(Av01Box { av1c, .. }) = &sample_description.av01 {
             Some(av1c.raw.clone())
@@ -479,7 +481,7 @@ impl Track {
     }
 
     pub fn codec_string(&self, mp4: &Mp4) -> Option<String> {
-        let sample_description = &self.trak(mp4).mdia.minf.stbl.stsd;
+        let sample_description = &self.trak(mp4)?.mdia.minf.stbl.stsd;
 
         let s = if let Some(Av01Box { av1c, .. }) = &sample_description.av01 {
             let profile = av1c.profile;
@@ -495,9 +497,8 @@ impl Track {
 
             format!("avc1.{profile:02X}{constraint:02X}{level:02X}")
         } else if let Some(Hvc1Box { hvcc, .. }) = &sample_description.hvc1 {
-            let mut codec = "hvc1".to_string();
+            let mut codec = "hvc1".to_owned();
             match hvcc.general_profile_space {
-                0 => {}
                 1 => codec.push_str(".A"),
                 2 => codec.push_str(".B"),
                 3 => codec.push_str(".C"),
@@ -515,7 +516,7 @@ impl Track {
                 reversed <<= 1;
                 val >>= 1;
             }
-            write!(&mut codec, ".{:X}", reversed).ok();
+            write!(&mut codec, ".{reversed:X}").ok();
 
             if hvcc.general_tier_flag {
                 codec.push_str(".H");
@@ -592,7 +593,7 @@ impl Mp4 {
         self.moov.udta.as_ref().and_then(|udta| {
             udta.meta.as_ref().and_then(|meta| match meta {
                 MetaBox::Mdir { ilst } => ilst.as_ref(),
-                _ => None,
+                MetaBox::Unknown { .. } => None,
             })
         })
     }

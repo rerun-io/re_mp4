@@ -2,7 +2,10 @@ use byteorder::{BigEndian, ReadBytesExt};
 use serde::Serialize;
 use std::io::{Read, Seek};
 
-use crate::mp4box::*;
+use crate::mp4box::{
+    box_start, read_box_header_ext, skip_bytes_to, value_i16, BoxType, FixedPointI8, Mp4Box,
+    ReadBox, Result, HEADER_EXT_SIZE, HEADER_SIZE,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct SmhdBox {
@@ -25,7 +28,7 @@ impl SmhdBox {
 
 impl Default for SmhdBox {
     fn default() -> Self {
-        SmhdBox {
+        Self {
             version: 0,
             flags: 0,
             balance: FixedPointI8::new_raw(0),
@@ -43,7 +46,7 @@ impl Mp4Box for SmhdBox {
     }
 
     fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(&self).unwrap())
+        Ok(serde_json::to_string(&self).expect("Failed to convert to JSON"))
     }
 
     fn summary(&self) -> Result<String> {
@@ -62,7 +65,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for SmhdBox {
 
         skip_bytes_to(reader, start + size)?;
 
-        Ok(SmhdBox {
+        Ok(Self {
             version,
             flags,
             balance,

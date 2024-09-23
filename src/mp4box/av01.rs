@@ -2,7 +2,10 @@ use byteorder::{BigEndian, ReadBytesExt};
 use serde::Serialize;
 use std::io::{Read, Seek};
 
-use crate::mp4box::*;
+use crate::mp4box::{
+    box_start, skip_bytes, skip_bytes_to, value_u32, BoxHeader, BoxType, Error, FixedPointU16,
+    Mp4Box, RawBox, ReadBox, Result, HEADER_SIZE,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Av01Box {
@@ -40,7 +43,7 @@ impl Mp4Box for Av01Box {
     }
 
     fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(&self).unwrap())
+        Ok(serde_json::to_string(&self).expect("Failed to convert to JSON"))
     }
 
     fn summary(&self) -> Result<String> {
@@ -81,7 +84,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for Av01Box {
 
             skip_bytes_to(reader, start + size)?;
 
-            Ok(Av01Box {
+            Ok(Self {
                 data_reference_index,
                 width,
                 height,
@@ -122,7 +125,7 @@ impl Mp4Box for Av1CBox {
     }
 
     fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(&self).unwrap())
+        Ok(serde_json::to_string(&self).expect("Failed to convert to JSON"))
     }
 
     fn summary(&self) -> Result<String> {
@@ -171,7 +174,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for Av1CBox {
         let mut config_obus = vec![0u8; config_obus_size as usize];
         reader.read_exact(&mut config_obus)?;
 
-        Ok(Av1CBox {
+        Ok(Self {
             profile,
             level,
             tier,

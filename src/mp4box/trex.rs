@@ -2,7 +2,10 @@ use byteorder::{BigEndian, ReadBytesExt};
 use serde::Serialize;
 use std::io::{Read, Seek};
 
-use crate::mp4box::*;
+use crate::mp4box::{
+    box_start, read_box_header_ext, skip_bytes_to, BoxType, Mp4Box, ReadBox, Result,
+    HEADER_EXT_SIZE, HEADER_SIZE,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
 pub struct TrexBox {
@@ -35,7 +38,7 @@ impl Mp4Box for TrexBox {
     }
 
     fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(&self).unwrap())
+        Ok(serde_json::to_string(&self).expect("Failed to convert to JSON"))
     }
 
     fn summary(&self) -> Result<String> {
@@ -61,7 +64,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for TrexBox {
 
         skip_bytes_to(reader, start + size)?;
 
-        Ok(TrexBox {
+        Ok(Self {
             version,
             flags,
             track_id,

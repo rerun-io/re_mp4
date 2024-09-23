@@ -4,7 +4,10 @@ use std::io::{Read, Seek};
 use byteorder::{BigEndian, ReadBytesExt};
 use serde::Serialize;
 
-use crate::mp4box::*;
+use crate::mp4box::{
+    box_start, read_box_header_ext, skip_bytes_to, BoxType, Error, Mp4Box, ReadBox, Result,
+    HEADER_EXT_SIZE, HEADER_SIZE,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
 pub struct EmsgBox {
@@ -49,7 +52,7 @@ impl Mp4Box for EmsgBox {
     }
 
     fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(&self).unwrap())
+        Ok(serde_json::to_string(&self).expect("Failed to convert to JSON"))
     }
 
     fn summary(&self) -> Result<String> {
@@ -105,7 +108,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for EmsgBox {
 
         skip_bytes_to(reader, start + size)?;
 
-        Ok(EmsgBox {
+        Ok(Self {
             version,
             flags,
             timescale,
@@ -129,8 +132,10 @@ fn read_null_terminated_utf8_string<R: Read + Seek>(reader: &mut R) -> Result<St
             break;
         }
     }
+    #[allow(unsafe_code)]
+    // SAFETY: we ensure there is exactly one nul-byte at the end of the slice
     if let Ok(str) = unsafe { CStr::from_bytes_with_nul_unchecked(&bytes) }.to_str() {
-        Ok(str.to_string())
+        Ok(str.to_owned())
     } else {
         Err(Error::InvalidData("invalid utf8"))
     }
