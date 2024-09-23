@@ -92,7 +92,7 @@ impl Mp4 {
         };
 
         let mut tracks = this.build_tracks();
-        this.update_sample_list(&mut tracks);
+        this.update_sample_list(&mut tracks)?;
         this.tracks = tracks;
         this.load_track_data(&mut reader)?;
 
@@ -263,31 +263,31 @@ impl Mp4 {
 
     /// In case the input file is fragmented, it will contain one or more `moof` boxes,
     /// which must be processed to obtain the full list of samples for each track.
-    fn update_sample_list(&mut self, tracks: &mut HashMap<u64, Track>) {
+    fn update_sample_list(&mut self, tracks: &mut HashMap<u64, Track>) -> Result<()> {
         let mut last_run_position = 0;
 
         for moof in &self.moofs {
             // process moof to update sample list
             for traf in &moof.trafs {
-                let track = tracks.get_mut(&(traf.tfhd.track_id as u64)).unwrap();
+                let track_id = traf.tfhd.track_id;
+                let track = tracks
+                    .get_mut(&(track_id as u64))
+                    .ok_or(Error::TrakNotFound(track_id))?;
                 let trak = self
                     .moov
                     .traks
                     .iter()
-                    .find(|trak| trak.tkhd.track_id == traf.tfhd.track_id)
-                    .unwrap();
-                let trex = self
-                    .moov
-                    .mvex
-                    .as_ref()
-                    .map(|mvex| {
-                        mvex.trexs
-                            .iter()
-                            .find(|trex| trex.track_id == traf.tfhd.track_id)
-                            .unwrap()
-                            .clone()
-                    })
-                    .unwrap_or_default();
+                    .find(|trak| trak.tkhd.track_id == track_id)
+                    .ok_or(Error::TrakNotFound(track_id))?;
+                let trex = if let Some(mvex) = &self.moov.mvex {
+                    mvex.trexs
+                        .iter()
+                        .find(|trex| trex.track_id == track_id)
+                        .ok_or(Error::TrakNotFound(track_id))?
+                        .clone()
+                } else {
+                    Default::default()
+                };
 
                 let default_sample_duration = traf
                     .tfhd
@@ -392,6 +392,8 @@ impl Mp4 {
                 }
             }
         }
+
+        Ok(())
     }
 
     /// For every track, combine its samples into a single contiguous buffer.
