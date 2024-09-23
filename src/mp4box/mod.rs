@@ -5,8 +5,6 @@
 //! * ISO/IEC 14496-17 - Streaming text format
 //! * [ISO 23009-1](https://www.iso.org/standard/79329.html) -Dynamic adaptive streaming over HTTP (DASH)
 //!
-//! * <http://developer.apple.com/documentation/QuickTime/QTFF/index.html>
-//! * <http://www.adobe.com/devnet/video/articles/mp4_movie_atom.html>
 //! * <http://mp4ra.org/#/atoms>
 //!
 //! Supported Atoms:
