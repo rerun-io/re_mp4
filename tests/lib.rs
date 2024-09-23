@@ -1,3 +1,6 @@
+#![allow(dead_code)] // TODO(#3): enable tests again
+#![allow(clippy::unwrap_used)]
+
 use std::path::Path;
 
 fn assert_snapshot(snapshot_path: &Path, contents: &[u8]) {
