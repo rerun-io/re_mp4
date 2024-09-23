@@ -20,7 +20,9 @@ mod mp4box;
 pub use mp4box::*;
 
 mod reader;
-pub use reader::*;
+pub use reader::Mp4;
+
+pub use types::{TrackId, TrackKind};
 
 pub fn read(bytes: &[u8]) -> Result<Mp4> {
     let mp4 = reader::Mp4::read(Cursor::new(bytes), bytes.len() as u64)?;

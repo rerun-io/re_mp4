@@ -165,6 +165,8 @@ const HANDLER_TYPE_AUDIO_FOURCC: [u8; 4] = [b's', b'o', b'u', b'n'];
 const HANDLER_TYPE_SUBTITLE: &str = "sbtl";
 const HANDLER_TYPE_SUBTITLE_FOURCC: [u8; 4] = [b's', b'b', b't', b'l'];
 
+pub type TrackId = u32;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TrackKind {
     Video,
