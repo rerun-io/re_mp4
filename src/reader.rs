@@ -499,7 +499,7 @@ impl Track {
 
             format!("avc1.{profile:02X}{constraint:02X}{level:02X}")
         } else if let Some(Hvc1Box { hvcc, .. }) = &sample_description.hvc1 {
-            let mut codec = "hvc1".to_string();
+            let mut codec = "hvc1".to_owned();
             match hvcc.general_profile_space {
                 0 => {}
                 1 => codec.push_str(".A"),
