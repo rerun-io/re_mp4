@@ -100,20 +100,20 @@ impl<R: Read + Seek> ReadBox<&mut R> for MinfBox {
             current = reader.stream_position()?;
         }
 
-        if dinf.is_none() {
+        let Some(dinf) = dinf else {
             return Err(Error::BoxNotFound(BoxType::DinfBox));
-        }
-        if stbl.is_none() {
+        };
+        let Some(stbl) = stbl else {
             return Err(Error::BoxNotFound(BoxType::StblBox));
-        }
+        };
 
         skip_bytes_to(reader, start + size)?;
 
         Ok(Self {
             vmhd,
             smhd,
-            dinf: dinf.unwrap(),
-            stbl: stbl.unwrap(),
+            dinf,
+            stbl,
         })
     }
 }

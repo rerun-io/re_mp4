@@ -198,16 +198,16 @@ impl<R: Read + Seek> ReadBox<&mut R> for EsdsBox {
             current = reader.stream_position()?;
         }
 
-        if es_desc.is_none() {
+        let Some(es_desc) = es_desc else {
             return Err(Error::InvalidData("ESDescriptor not found"));
-        }
+        };
 
         skip_bytes_to(reader, start + size)?;
 
         Ok(Self {
             version,
             flags,
-            es_desc: es_desc.unwrap(),
+            es_desc,
         })
     }
 }

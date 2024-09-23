@@ -134,18 +134,18 @@ impl<R: Read + Seek> ReadBox<&mut R> for StblBox {
             current = reader.stream_position()?;
         }
 
-        if stsd.is_none() {
+        let Some(stsd) = stsd else {
             return Err(Error::BoxNotFound(BoxType::StsdBox));
-        }
-        if stts.is_none() {
+        };
+        let Some(stts) = stts else {
             return Err(Error::BoxNotFound(BoxType::SttsBox));
-        }
-        if stsc.is_none() {
+        };
+        let Some(stsc) = stsc else {
             return Err(Error::BoxNotFound(BoxType::StscBox));
-        }
-        if stsz.is_none() {
+        };
+        let Some(stsz) = stsz else {
             return Err(Error::BoxNotFound(BoxType::StszBox));
-        }
+        };
         if stco.is_none() && co64.is_none() {
             return Err(Error::Box2NotFound(BoxType::StcoBox, BoxType::Co64Box));
         }
@@ -153,12 +153,12 @@ impl<R: Read + Seek> ReadBox<&mut R> for StblBox {
         skip_bytes_to(reader, start + size)?;
 
         Ok(Self {
-            stsd: stsd.unwrap(),
-            stts: stts.unwrap(),
+            stsd,
+            stts,
             ctts,
             stss,
-            stsc: stsc.unwrap(),
-            stsz: stsz.unwrap(),
+            stsc,
+            stsz,
             stco,
             co64,
         })

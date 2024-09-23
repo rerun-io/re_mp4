@@ -90,16 +90,12 @@ impl<R: Read + Seek> ReadBox<&mut R> for TrafBox {
             current = reader.stream_position()?;
         }
 
-        if tfhd.is_none() {
+        let Some(tfhd) = tfhd else {
             return Err(Error::BoxNotFound(BoxType::TfhdBox));
-        }
+        };
 
         skip_bytes_to(reader, start + size)?;
 
-        Ok(Self {
-            tfhd: tfhd.unwrap(),
-            tfdt,
-            truns,
-        })
+        Ok(Self { tfhd, tfdt, truns })
     }
 }

@@ -71,15 +71,13 @@ impl<R: Read + Seek> ReadBox<&mut R> for DinfBox {
             current = reader.stream_position()?;
         }
 
-        if dref.is_none() {
+        let Some(dref) = dref else {
             return Err(Error::BoxNotFound(BoxType::DrefBox));
-        }
+        };
 
         skip_bytes_to(reader, start + size)?;
 
-        Ok(Self {
-            dref: dref.unwrap(),
-        })
+        Ok(Self { dref })
     }
 }
 

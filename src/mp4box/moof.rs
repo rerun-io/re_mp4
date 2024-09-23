@@ -86,16 +86,12 @@ impl<R: Read + Seek> ReadBox<&mut R> for MoofBox {
             current = reader.stream_position()?;
         }
 
-        if mfhd.is_none() {
+        let Some(mfhd) = mfhd else {
             return Err(Error::BoxNotFound(BoxType::MfhdBox));
-        }
+        };
 
         skip_bytes_to(reader, start + size)?;
 
-        Ok(Self {
-            start,
-            mfhd: mfhd.unwrap(),
-            trafs,
-        })
+        Ok(Self { start, mfhd, trafs })
     }
 }

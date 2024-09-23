@@ -112,14 +112,14 @@ impl<R: Read + Seek> ReadBox<&mut R> for MoovBox {
             current = reader.stream_position()?;
         }
 
-        if mvhd.is_none() {
+        let Some(mvhd) = mvhd else {
             return Err(Error::BoxNotFound(BoxType::MvhdBox));
-        }
+        };
 
         skip_bytes_to(reader, start + size)?;
 
         Ok(Self {
-            mvhd: mvhd.unwrap(),
+            mvhd,
             meta,
             udta,
             mvex,

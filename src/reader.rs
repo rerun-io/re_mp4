@@ -76,16 +76,16 @@ impl Mp4 {
             current = reader.stream_position()?;
         }
 
-        if ftyp.is_none() {
+        let Some(ftyp) = ftyp else {
             return Err(Error::BoxNotFound(BoxType::FtypBox));
-        }
-        if moov.is_none() {
+        };
+        let Some(moov) = moov else {
             return Err(Error::BoxNotFound(BoxType::MoovBox));
-        }
+        };
 
         let mut this = Self {
-            ftyp: ftyp.unwrap(),
-            moov: moov.unwrap(),
+            ftyp,
+            moov,
             moofs,
             emsgs,
             tracks: HashMap::new(),

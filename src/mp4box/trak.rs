@@ -99,20 +99,20 @@ impl<R: Read + Seek> ReadBox<&mut R> for TrakBox {
             current = reader.stream_position()?;
         }
 
-        if tkhd.is_none() {
+        let Some(tkhd) = tkhd else {
             return Err(Error::BoxNotFound(BoxType::TkhdBox));
-        }
-        if mdia.is_none() {
+        };
+        let Some(mdia) = mdia else {
             return Err(Error::BoxNotFound(BoxType::MdiaBox));
-        }
+        };
 
         skip_bytes_to(reader, start + size)?;
 
         Ok(Self {
-            tkhd: tkhd.unwrap(),
+            tkhd,
             edts,
             meta,
-            mdia: mdia.unwrap(),
+            mdia,
         })
     }
 }
