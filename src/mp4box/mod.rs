@@ -282,12 +282,12 @@ impl BoxHeader {
         reader.read_exact(&mut buf)?;
 
         // Get size.
-        let s = buf[0..4].try_into().unwrap();
-        let size = u32::from_be_bytes(s);
+        #[allow(clippy::unwrap_used)] // [u8; 4] from a slice that is 4 long cannot fail
+        let size = u32::from_be_bytes(buf[0..4].try_into().unwrap());
 
         // Get box type string.
-        let t = buf[4..8].try_into().unwrap();
-        let typ = u32::from_be_bytes(t);
+        #[allow(clippy::unwrap_used)] // [u8; 4] from a slice that is 4 long cannot fail
+        let typ = u32::from_be_bytes(buf[4..8].try_into().unwrap());
 
         // Get largesize if size is 1
         if size == 1 {
