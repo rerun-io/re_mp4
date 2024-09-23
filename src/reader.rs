@@ -437,7 +437,7 @@ pub struct Track {
     pub track_id: u32,
     timescale: u64,
     duration: u64,
-    pub kind: TrackKind,
+    pub kind: Option<TrackKind>,
     pub samples: Vec<Sample>,
     pub data: Vec<u8>,
 }

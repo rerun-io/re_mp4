@@ -46,7 +46,7 @@ fn assert_video_snapshot(file_path: &str) {
     let bytes = std::fs::read(base_path.join(file_path)).unwrap();
     let video = re_mp4::read(&bytes).unwrap();
     for (id, track) in video.tracks() {
-        if track.kind == re_mp4::TrackKind::Video {
+        if track.kind == Some(re_mp4::TrackKind::Video) {
             assert_snapshot(
                 &base_path.join(format!("{}.track_{id}.bin", file_path)),
                 &track.data,
