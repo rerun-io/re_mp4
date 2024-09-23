@@ -1,11 +1,12 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::fmt::Write as _;
 use std::io::SeekFrom;
 use std::io::{Read, Seek};
 
 use crate::{
     skip_box, Av01Box, Avc1Box, BoxHeader, BoxType, EmsgBox, Error, FtypBox, Hvc1Box, MoofBox,
-    MoovBox, ReadBox, Result, StblBox, TfhdBox, TrackKind, TrakBox, TrunBox, Vp08Box, Vp09Box,
+    MoovBox, ReadBox, Result, StblBox, TfhdBox, TrackId, TrackKind, TrakBox, TrunBox, Vp08Box,
+    Vp09Box,
 };
 
 #[derive(Debug)]
@@ -14,7 +15,7 @@ pub struct Mp4 {
     pub moov: MoovBox,
     pub moofs: Vec<MoofBox>,
     pub emsgs: Vec<EmsgBox>,
-    tracks: HashMap<u64, Track>,
+    tracks: BTreeMap<TrackId, Track>,
 }
 
 impl Mp4 {
@@ -87,7 +88,7 @@ impl Mp4 {
             moov,
             moofs,
             emsgs,
-            tracks: HashMap::new(),
+            tracks: Default::default(),
         };
 
         let mut tracks = this.build_tracks();
@@ -98,15 +99,15 @@ impl Mp4 {
         Ok(this)
     }
 
-    pub fn tracks(&self) -> &HashMap<u64, Track> {
+    pub fn tracks(&self) -> &BTreeMap<TrackId, Track> {
         &self.tracks
     }
 
     /// Process each `trak` box to obtain a list of samples for each track.
     ///
     /// Note that the list will be incomplete if the file is fragmented.
-    fn build_tracks(&mut self) -> HashMap<u64, Track> {
-        let mut tracks = HashMap::new();
+    fn build_tracks(&mut self) -> BTreeMap<TrackId, Track> {
+        let mut tracks = BTreeMap::new();
 
         // load samples from traks
         for trak in &self.moov.traks {
@@ -241,7 +242,7 @@ impl Mp4 {
             }
 
             tracks.insert(
-                trak.tkhd.track_id as u64,
+                trak.tkhd.track_id,
                 Track {
                     track_id: trak.tkhd.track_id,
                     width: trak.tkhd.width.value(),
@@ -261,7 +262,7 @@ impl Mp4 {
 
     /// In case the input file is fragmented, it will contain one or more `moof` boxes,
     /// which must be processed to obtain the full list of samples for each track.
-    fn update_sample_list(&mut self, tracks: &mut HashMap<u64, Track>) -> Result<()> {
+    fn update_sample_list(&mut self, tracks: &mut BTreeMap<TrackId, Track>) -> Result<()> {
         let mut last_run_position = 0;
 
         for moof in &self.moofs {
@@ -269,7 +270,7 @@ impl Mp4 {
             for traf in &moof.trafs {
                 let track_id = traf.tfhd.track_id;
                 let track = tracks
-                    .get_mut(&(track_id as u64))
+                    .get_mut(&track_id)
                     .ok_or(Error::TrakNotFound(track_id))?;
                 let trak = self
                     .moov
@@ -402,7 +403,6 @@ impl Mp4 {
     ///
     /// After this function is called, each track's [`Track::data`] may only be indexed by one of its samples' [`Sample::offset`]s.
     fn load_track_data<R: Read + Seek>(&mut self, reader: &mut R) -> Result<()> {
-        #[allow(clippy::iter_over_hash_type)] // what we do in the iteration is not order-dependent
         for track in self.tracks.values_mut() {
             for sample in &mut track.samples {
                 let data_offset = track.data.len();
