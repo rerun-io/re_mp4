@@ -283,7 +283,7 @@ impl Mp4 {
                     mvex.trexs
                         .iter()
                         .find(|trex| trex.track_id == track_id)
-                        .ok_or(Error::TrakNotFound(track_id))?
+                        .ok_or(Error::BoxInTrafNotFound(track_id, BoxType::TrexBox))?
                         .clone()
                 } else {
                     Default::default()
