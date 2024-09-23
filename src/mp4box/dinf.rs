@@ -1,7 +1,10 @@
 use serde::Serialize;
 use std::io::{Read, Seek};
 
-use crate::mp4box::*;
+use crate::mp4box::{
+    box_start, read_box_header_ext, skip_box, skip_bytes_to, BigEndian, BoxHeader, BoxType, Error,
+    Mp4Box, ReadBox, ReadBytesExt, Result, HEADER_EXT_SIZE, HEADER_SIZE,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
 pub struct DinfBox {
@@ -28,7 +31,7 @@ impl Mp4Box for DinfBox {
     }
 
     fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(&self).unwrap())
+        Ok(serde_json::to_string(&self).expect("Failed to convert to JSON"))
     }
 
     fn summary(&self) -> Result<String> {
@@ -68,15 +71,13 @@ impl<R: Read + Seek> ReadBox<&mut R> for DinfBox {
             current = reader.stream_position()?;
         }
 
-        if dref.is_none() {
+        let Some(dref) = dref else {
             return Err(Error::BoxNotFound(BoxType::DrefBox));
-        }
+        };
 
         skip_bytes_to(reader, start + size)?;
 
-        Ok(DinfBox {
-            dref: dref.unwrap(),
-        })
+        Ok(Self { dref })
     }
 }
 
@@ -91,7 +92,7 @@ pub struct DrefBox {
 
 impl Default for DrefBox {
     fn default() -> Self {
-        DrefBox {
+        Self {
             version: 0,
             flags: 0,
             url: Some(UrlBox::default()),
@@ -123,7 +124,7 @@ impl Mp4Box for DrefBox {
     }
 
     fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(&self).unwrap())
+        Ok(serde_json::to_string(&self).expect("Failed to convert to JSON"))
     }
 
     fn summary(&self) -> Result<String> {
@@ -172,7 +173,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for DrefBox {
 
         skip_bytes_to(reader, start + size)?;
 
-        Ok(DrefBox {
+        Ok(Self {
             version,
             flags,
             url,
@@ -189,7 +190,7 @@ pub struct UrlBox {
 
 impl Default for UrlBox {
     fn default() -> Self {
-        UrlBox {
+        Self {
             version: 0,
             flags: 1,
             location: String::default(),
@@ -223,7 +224,7 @@ impl Mp4Box for UrlBox {
     }
 
     fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(&self).unwrap())
+        Ok(serde_json::to_string(&self).expect("Failed to convert to JSON"))
     }
 
     fn summary(&self) -> Result<String> {
@@ -251,7 +252,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for UrlBox {
 
         skip_bytes_to(reader, start + size)?;
 
-        Ok(UrlBox {
+        Ok(Self {
             version,
             flags,
             location,

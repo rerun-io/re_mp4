@@ -2,7 +2,9 @@ use byteorder::{BigEndian, ReadBytesExt};
 use serde::Serialize;
 use std::io::{Read, Seek};
 
-use crate::mp4box::*;
+use crate::mp4box::{
+    box_start, skip_bytes_to, BoxType, Error, FourCC, Mp4Box, ReadBox, Result, HEADER_SIZE,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
 pub struct FtypBox {
@@ -31,12 +33,12 @@ impl Mp4Box for FtypBox {
     }
 
     fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(&self).unwrap())
+        Ok(serde_json::to_string(&self).expect("Failed to convert to JSON"))
     }
 
     fn summary(&self) -> Result<String> {
         let mut compatible_brands = Vec::new();
-        for brand in self.compatible_brands.iter() {
+        for brand in &self.compatible_brands {
             compatible_brands.push(brand.to_string());
         }
         let s = format!(
@@ -68,7 +70,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for FtypBox {
 
         skip_bytes_to(reader, start + size)?;
 
-        Ok(FtypBox {
+        Ok(Self {
             major_brand: From::from(major),
             minor_version: minor,
             compatible_brands: brands,

@@ -1,0 +1,16 @@
+# https://github.com/crate-ci/typos
+# install:  cargo install typos-cli
+# run:      typos
+
+[default.extend-words]
+# There are some weird words in this repository:
+alignement = "alignement"
+ALS = "ALS"
+alst = "alst"
+CLL = "CLL"
+fiel = "fiel"
+intialization = "intialization"
+numer = "numer"
+trak = "trak"
+trun = "trun"
+truns = "truns"

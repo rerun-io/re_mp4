@@ -3,7 +3,10 @@ use serde::Serialize;
 use std::io::{Read, Seek};
 use std::mem::size_of;
 
-use crate::mp4box::*;
+use crate::mp4box::{
+    box_start, read_box_header_ext, skip_bytes_to, BoxType, Error, Mp4Box, ReadBox, Result,
+    HEADER_EXT_SIZE, HEADER_SIZE,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
 pub struct StscBox {
@@ -42,7 +45,7 @@ impl Mp4Box for StscBox {
     }
 
     fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(&self).unwrap())
+        Ok(serde_json::to_string(&self).expect("Failed to convert to JSON"))
     }
 
     fn summary(&self) -> Result<String> {
@@ -85,12 +88,12 @@ impl<R: Read + Seek> ReadBox<&mut R> for StscBox {
         let mut sample_id = 1;
         for i in 0..entry_count {
             let (first_chunk, samples_per_chunk) = {
-                let entry = entries.get_mut(i as usize).unwrap();
+                let entry = &mut entries[i as usize];
                 entry.first_sample = sample_id;
                 (entry.first_chunk, entry.samples_per_chunk)
             };
             if i < entry_count - 1 {
-                let next_entry = entries.get(i as usize + 1).unwrap();
+                let next_entry = &entries[i as usize + 1];
                 sample_id = next_entry
                     .first_chunk
                     .checked_sub(first_chunk)
@@ -104,7 +107,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for StscBox {
 
         skip_bytes_to(reader, start + size)?;
 
-        Ok(StscBox {
+        Ok(Self {
             version,
             flags,
             entries,

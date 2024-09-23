@@ -1,3 +1,6 @@
+#![allow(dead_code)] // TODO(#3): enable tests again
+#![allow(clippy::unwrap_used)]
+
 use std::path::Path;
 
 fn assert_snapshot(snapshot_path: &Path, contents: &[u8]) {
@@ -45,21 +48,23 @@ fn assert_video_snapshot(file_path: &str) {
     let base_path = Path::new(BASE);
     let bytes = std::fs::read(base_path.join(file_path)).unwrap();
     let video = re_mp4::read(&bytes).unwrap();
+
+    #[allow(clippy::iter_over_hash_type)] // what we do in the iteration is not order-dependent
     for (id, track) in video.tracks() {
         if track.kind == Some(re_mp4::TrackKind::Video) {
             assert_snapshot(
-                &base_path.join(format!("{}.track_{id}.bin", file_path)),
+                &base_path.join(format!("{file_path}.track_{id}.bin")),
                 &track.data,
             );
             assert_snapshot(
-                &base_path.join(format!("{}.track_{id}.segments", file_path)),
+                &base_path.join(format!("{file_path}.track_{id}.segments")),
                 format!(r#"{:#?}"#, track.samples).as_bytes(),
             );
             assert_snapshot(
-                &base_path.join(format!("{}.track_{id}.json", file_path)),
+                &base_path.join(format!("{file_path}.track_{id}.json")),
                 format!(
                     r#"{{ "codec": {:?}, "width": {}, "height": {}, "num_samples": {}, "description": {:?} }}"#,
-                    track.codec_string(&video).unwrap_or("unknown".to_string()),
+                    track.codec_string(&video).unwrap_or("unknown".to_owned()),
                     track.width,
                     track.height,
                     track.samples.len(),

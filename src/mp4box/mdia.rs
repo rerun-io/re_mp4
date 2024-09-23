@@ -1,7 +1,10 @@
 use serde::Serialize;
 use std::io::{Read, Seek};
 
-use crate::mp4box::*;
+use crate::mp4box::{
+    box_start, skip_box, skip_bytes_to, BoxHeader, BoxType, Error, Mp4Box, ReadBox, Result,
+    HEADER_SIZE,
+};
 use crate::mp4box::{hdlr::HdlrBox, mdhd::MdhdBox, minf::MinfBox};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
@@ -31,7 +34,7 @@ impl Mp4Box for MdiaBox {
     }
 
     fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(&self).unwrap())
+        Ok(serde_json::to_string(&self).expect("Failed to convert to JSON"))
     }
 
     fn summary(&self) -> Result<String> {
@@ -79,22 +82,18 @@ impl<R: Read + Seek> ReadBox<&mut R> for MdiaBox {
             current = reader.stream_position()?;
         }
 
-        if mdhd.is_none() {
+        let Some(mdhd) = mdhd else {
             return Err(Error::BoxNotFound(BoxType::MdhdBox));
-        }
-        if hdlr.is_none() {
+        };
+        let Some(hdlr) = hdlr else {
             return Err(Error::BoxNotFound(BoxType::HdlrBox));
-        }
-        if minf.is_none() {
+        };
+        let Some(minf) = minf else {
             return Err(Error::BoxNotFound(BoxType::MinfBox));
-        }
+        };
 
         skip_bytes_to(reader, start + size)?;
 
-        Ok(MdiaBox {
-            mdhd: mdhd.unwrap(),
-            hdlr: hdlr.unwrap(),
-            minf: minf.unwrap(),
-        })
+        Ok(Self { mdhd, hdlr, minf })
     }
 }

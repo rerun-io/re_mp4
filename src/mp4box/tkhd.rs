@@ -2,7 +2,10 @@ use byteorder::{BigEndian, ReadBytesExt};
 use serde::Serialize;
 use std::io::{Read, Seek};
 
-use crate::mp4box::*;
+use crate::mp4box::{
+    box_start, read_box_header_ext, skip_bytes_to, value_u32, value_u8, BoxType, Error,
+    FixedPointU16, FixedPointU8, Mp4Box, ReadBox, Result, HEADER_EXT_SIZE, HEADER_SIZE,
+};
 
 pub enum TrackFlag {
     TrackEnabled = 0x000001,
@@ -34,7 +37,7 @@ pub struct TkhdBox {
 
 impl Default for TkhdBox {
     fn default() -> Self {
-        TkhdBox {
+        Self {
             version: 0,
             flags: TrackFlag::TrackEnabled as u32,
             creation_time: 0,
@@ -126,7 +129,7 @@ impl Mp4Box for TkhdBox {
     }
 
     fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(&self).unwrap())
+        Ok(serde_json::to_string(&self).expect("Failed to convert to JSON"))
     }
 
     fn summary(&self) -> Result<String> {
@@ -193,7 +196,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for TkhdBox {
 
         skip_bytes_to(reader, start + size)?;
 
-        Ok(TkhdBox {
+        Ok(Self {
             version,
             flags,
             creation_time,

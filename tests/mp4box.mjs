@@ -860,7 +860,7 @@ DataStream.prototype.readCString = function (length) {
   return s;
 };
 
-/* 
+/*
    TODO: fix endianness for 24/64-bit fields
    TODO: check range/support for 64-bits numbers in JavaScript
 */
@@ -884,7 +884,7 @@ DataStream.prototype.readUint24 = function () {
 /**
   Saves the DataStream contents to the given filename.
   Uses Chrome's anchor download property to initiate download.
- 
+
   @param {string} filename Filename to save as.
   @return {null}
   */
@@ -1676,7 +1676,7 @@ MultiBufferStream.prototype.insertBuffer = function (ab) {
         /* The new buffer overlaps with an existing buffer */
         if (ab.byteLength > b.byteLength) {
           /* the new buffer is bigger than the existing one
-					   remove the existing buffer and try again to insert 
+					   remove the existing buffer and try again to insert
 					   the new buffer to check overlap with the next ones */
           this.buffers.splice(i, 1);
           i--;
@@ -1706,7 +1706,7 @@ MultiBufferStream.prototype.insertBuffer = function (ab) {
           "Appending new buffer (fileStart: " + ab.fileStart + " - Length: " + ab.byteLength + ")"
         );
         this.buffers.splice(i, 0, ab);
-        /* if this new buffer is inserted in the first place in the list of the buffer, 
+        /* if this new buffer is inserted in the first place in the list of the buffer,
 				   and the DataStream is initialized, make it the buffer used for parsing */
         if (i === 0) {
           this.buffer = ab;
@@ -1735,7 +1735,7 @@ MultiBufferStream.prototype.insertBuffer = function (ab) {
       "Appending new buffer (fileStart: " + ab.fileStart + " - Length: " + ab.byteLength + ")"
     );
     this.buffers.push(ab);
-    /* if this new buffer is inserted in the first place in the list of the buffer, 
+    /* if this new buffer is inserted in the first place in the list of the buffer,
 		   and the DataStream is initialized, make it the buffer used for parsing */
     if (i === 0) {
       this.buffer = ab;
@@ -1851,7 +1851,7 @@ MultiBufferStream.prototype.mergeNextBuffer = function () {
  * @param  {Number}  filePosition position in the file to seek to
  * @param  {Boolean} markAsUsed   indicates if the bytes in between the current position and the seek position
  *                                should be marked as used for garbage collection
- * @return {Number}               the index of the buffer holding the seeked file position, -1 if not found.
+ * @return {Number}               the index of the buffer holding the sought file position, -1 if not found.
  */
 MultiBufferStream.prototype.findPosition = function (fromStart, filePosition, markAsUsed) {
   var i;
@@ -2628,7 +2628,7 @@ BoxParser.Box.prototype.parse = function (stream) {
   }
 };
 
-/* Used to parse a box without consuming its data, to allow detailled parsing
+/* Used to parse a box without consuming its data, to allow detailed parsing
    Useful for boxes for which a write method is not yet implemented */
 BoxParser.Box.prototype.parseDataAndRewind = function (stream) {
   this.data = stream.readUint8Array(this.size - this.hdr_size);
@@ -3051,7 +3051,7 @@ BoxParser.createFullBoxCtor("ctts", function (stream) {
     for (i = 0; i < entry_count; i++) {
       this.sample_counts.push(stream.readUint32());
       /* some files are buggy and declare version=0 while using signed offsets.
-			   The likelyhood of using the most significant bit in a 32-bits time offset is very low,
+			   The likelihood of using the most significant bit in a 32-bits time offset is very low,
 			   so using signed value here as well */
       var value = stream.readInt32();
       if (value < 0) {
@@ -3690,7 +3690,7 @@ BoxParser.createFullBoxCtor("leva", function (stream) {
         level.sub_track_id = stream.readUint32();
         break;
       default:
-        console.warn("BoxParser", "Unknown leva assignement type");
+        console.warn("BoxParser", "Unknown leva assignment type");
     }
   }
 });
@@ -6527,7 +6527,7 @@ Textin4Parser.prototype.parseConfig = function (data) {
  * License: BSD-3-Clause (see LICENSE file)
  */
 var ISOFile = function (stream) {
-  /* MutiBufferStream object used to parse boxes */
+  /* MultiBufferStream object used to parse boxes */
   this.stream = stream || new MultiBufferStream();
   /* Array of all boxes (in order) found in the file */
   this.boxes = [];
@@ -7281,7 +7281,7 @@ ISOFile.prototype.lastBoxStartPosition = 0;
 /* indicator if the parsing is stuck in the middle of an mdat box */
 ISOFile.prototype.parsingMdat = null;
 /* next file position that the parser needs:
-    - 0 until the first buffer (i.e. fileStart ===0) has been received 
+    - 0 until the first buffer (i.e. fileStart ===0) has been received
     - otherwise, the next box start until the moov box has been parsed
     - otherwise, the position of the next sample to fetch
  */
@@ -7298,7 +7298,7 @@ ISOFile.prototype.processIncompleteBox = function (ret) {
   if (ret.type === "mdat") {
     /* we had enough bytes to get its type and size and it's an 'mdat' */
 
-    /* special handling for mdat boxes, since we don't actually need to parse it linearly 
+    /* special handling for mdat boxes, since we don't actually need to parse it linearly
 		   we create the box */
     box = new BoxParser[ret.type + "Box"](ret.size);
     this.parsingMdat = box;
@@ -7321,12 +7321,12 @@ ISOFile.prototype.processIncompleteBox = function (ret) {
       /* 'mdat' end not found in the existing buffers */
       /* determine the next position in the file to start parsing from */
       if (!this.moovStartFound) {
-        /* moov not find yet, 
-				   the file probably has 'mdat' at the beginning, and 'moov' at the end, 
+        /* moov not find yet,
+				   the file probably has 'mdat' at the beginning, and 'moov' at the end,
 				   indicate that the downloader should not try to download those bytes now */
         this.nextParsePosition = box.start + box.size;
       } else {
-        /* we have the start of the moov box, 
+        /* we have the start of the moov box,
 				   the next bytes should try to complete the current 'mdat' */
         this.nextParsePosition = this.stream.findEndContiguousBuf();
       }
@@ -7344,12 +7344,12 @@ ISOFile.prototype.processIncompleteBox = function (ret) {
     }
     /* either it's not an mdat box (and we need to parse it, we cannot skip it)
 		   (TODO: we could skip 'free' boxes ...)
-			   or we did not have enough data to parse the type and size of the box, 
+			   or we did not have enough data to parse the type and size of the box,
 		   we try to concatenate the current buffer with the next buffer to restart parsing */
     merged = this.stream.mergeNextBuffer ? this.stream.mergeNextBuffer() : false;
     if (merged) {
       /* The next buffer was contiguous, the merging succeeded,
-			   we can now continue parsing, 
+			   we can now continue parsing,
 			   the next best position to parse is at the end of this new buffer */
       this.nextParsePosition = this.stream.getEndPosition();
       return true;
@@ -7362,7 +7362,7 @@ ISOFile.prototype.processIncompleteBox = function (ret) {
         this.nextParsePosition = this.stream.getEndPosition();
       } else {
         /* we had enough bytes to parse size and type of the incomplete box
-				   if we haven't found yet the moov box, skip this one and try the next one 
+				   if we haven't found yet the moov box, skip this one and try the next one
 				   if we have found the moov box, let's continue linear parsing */
         if (this.moovStartFound) {
           this.nextParsePosition = this.stream.getEndPosition();
@@ -7394,8 +7394,8 @@ ISOFile.prototype.processIncompleteMdat = function () {
     /* we can parse more in this buffer */
     return true;
   } else {
-    /* we don't have the end of this mdat yet, 
-		   indicate that the next byte to fetch is the end of the buffers we have so far, 
+    /* we don't have the end of this mdat yet,
+		   indicate that the next byte to fetch is the end of the buffers we have so far,
 		   return and wait for more buffer to come */
     this.nextParsePosition = this.stream.findEndContiguousBuf();
     return false;

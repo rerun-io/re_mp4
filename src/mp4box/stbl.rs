@@ -1,7 +1,10 @@
 use serde::Serialize;
 use std::io::{Read, Seek};
 
-use crate::mp4box::*;
+use crate::mp4box::{
+    box_start, skip_box, skip_bytes_to, BoxHeader, BoxType, Error, Mp4Box, ReadBox, Result,
+    HEADER_SIZE,
+};
 use crate::mp4box::{
     co64::Co64Box, ctts::CttsBox, stco::StcoBox, stsc::StscBox, stsd::StsdBox, stss::StssBox,
     stsz::StszBox, stts::SttsBox,
@@ -64,7 +67,7 @@ impl Mp4Box for StblBox {
     }
 
     fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(&self).unwrap())
+        Ok(serde_json::to_string(&self).expect("Failed to convert to JSON"))
     }
 
     fn summary(&self) -> Result<String> {
@@ -131,31 +134,31 @@ impl<R: Read + Seek> ReadBox<&mut R> for StblBox {
             current = reader.stream_position()?;
         }
 
-        if stsd.is_none() {
+        let Some(stsd) = stsd else {
             return Err(Error::BoxNotFound(BoxType::StsdBox));
-        }
-        if stts.is_none() {
+        };
+        let Some(stts) = stts else {
             return Err(Error::BoxNotFound(BoxType::SttsBox));
-        }
-        if stsc.is_none() {
+        };
+        let Some(stsc) = stsc else {
             return Err(Error::BoxNotFound(BoxType::StscBox));
-        }
-        if stsz.is_none() {
+        };
+        let Some(stsz) = stsz else {
             return Err(Error::BoxNotFound(BoxType::StszBox));
-        }
+        };
         if stco.is_none() && co64.is_none() {
             return Err(Error::Box2NotFound(BoxType::StcoBox, BoxType::Co64Box));
         }
 
         skip_bytes_to(reader, start + size)?;
 
-        Ok(StblBox {
-            stsd: stsd.unwrap(),
-            stts: stts.unwrap(),
+        Ok(Self {
+            stsd,
+            stts,
             ctts,
             stss,
-            stsc: stsc.unwrap(),
-            stsz: stsz.unwrap(),
+            stsc,
+            stsz,
             stco,
             co64,
         })

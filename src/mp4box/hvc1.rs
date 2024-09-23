@@ -2,7 +2,10 @@ use byteorder::{BigEndian, ReadBytesExt};
 use serde::Serialize;
 use std::io::{Read, Seek};
 
-use crate::mp4box::*;
+use crate::mp4box::{
+    box_start, skip_bytes, skip_bytes_to, value_u32, BoxHeader, BoxType, Error, FixedPointU16,
+    Mp4Box, RawBox, ReadBox, Result, HEADER_SIZE,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Hvc1Box {
@@ -22,7 +25,7 @@ pub struct Hvc1Box {
 
 impl Default for Hvc1Box {
     fn default() -> Self {
-        Hvc1Box {
+        Self {
             data_reference_index: 0,
             width: 0,
             height: 0,
@@ -55,7 +58,7 @@ impl Mp4Box for Hvc1Box {
     }
 
     fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(&self).unwrap())
+        Ok(serde_json::to_string(&self).expect("Failed to convert to JSON"))
     }
 
     fn summary(&self) -> Result<String> {
@@ -100,7 +103,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for Hvc1Box {
 
             skip_bytes_to(reader, start + size)?;
 
-            Ok(Hvc1Box {
+            Ok(Self {
                 data_reference_index,
                 width,
                 height,
@@ -163,11 +166,11 @@ impl Mp4Box for HvcCBox {
     }
 
     fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(&self).unwrap())
+        Ok(serde_json::to_string(&self).expect("Failed to convert to JSON"))
     }
 
     fn summary(&self) -> Result<String> {
-        Ok(format!("configuration_version={} general_profile_space={} general_tier_flag={} general_profile_idc={} general_profile_compatibility_flags={} general_constraint_indicator_flag={} general_level_idc={} min_spatial_segmentation_idc={} parallelism_type={} chroma_format_idc={} bit_depth_luma_minus8={} bit_depth_chroma_minus8={} avg_frame_rate={} constant_frame_rate={} num_temporal_layers={} temporal_id_nested={} length_size_minus_one={}", 
+        Ok(format!("configuration_version={} general_profile_space={} general_tier_flag={} general_profile_idc={} general_profile_compatibility_flags={} general_constraint_indicator_flag={} general_level_idc={} min_spatial_segmentation_idc={} parallelism_type={} chroma_format_idc={} bit_depth_luma_minus8={} bit_depth_chroma_minus8={} avg_frame_rate={} constant_frame_rate={} num_temporal_layers={} temporal_id_nested={} length_size_minus_one={}",
             self.configuration_version,
             self.general_profile_space,
             self.general_tier_flag,
@@ -240,7 +243,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for HvcCBox {
 
                 reader.read_exact(&mut data)?;
 
-                nalus.push(HvcCArrayNalu { size, data })
+                nalus.push(HvcCArrayNalu { size, data });
             }
 
             arrays.push(HvcCArray {
@@ -250,7 +253,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for HvcCBox {
             });
         }
 
-        Ok(HvcCBox {
+        Ok(Self {
             configuration_version,
             general_profile_space,
             general_tier_flag,

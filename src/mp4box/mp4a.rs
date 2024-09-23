@@ -2,7 +2,10 @@ use byteorder::{BigEndian, ReadBytesExt};
 use serde::Serialize;
 use std::io::{Read, Seek};
 
-use crate::mp4box::*;
+use crate::mp4box::{
+    box_start, read_box_header_ext, skip_bytes, skip_bytes_to, value_u32, AacConfig, BoxHeader,
+    BoxType, Error, FixedPointU16, Mp4Box, ReadBox, Result, HEADER_EXT_SIZE, HEADER_SIZE,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Mp4aBox {
@@ -61,7 +64,7 @@ impl Mp4Box for Mp4aBox {
     }
 
     fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(&self).unwrap())
+        Ok(serde_json::to_string(&self).expect("Failed to convert to JSON"))
     }
 
     fn summary(&self) -> Result<String> {
@@ -125,7 +128,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for Mp4aBox {
 
         skip_bytes_to(reader, end)?;
 
-        Ok(Mp4aBox {
+        Ok(Self {
             data_reference_index,
             channelcount,
             samplesize,
@@ -166,7 +169,7 @@ impl Mp4Box for EsdsBox {
     }
 
     fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(&self).unwrap())
+        Ok(serde_json::to_string(&self).expect("Failed to convert to JSON"))
     }
 
     fn summary(&self) -> Result<String> {
@@ -195,16 +198,16 @@ impl<R: Read + Seek> ReadBox<&mut R> for EsdsBox {
             current = reader.stream_position()?;
         }
 
-        if es_desc.is_none() {
+        let Some(es_desc) = es_desc else {
             return Err(Error::InvalidData("ESDescriptor not found"));
-        }
+        };
 
         skip_bytes_to(reader, start + size)?;
 
-        Ok(EsdsBox {
+        Ok(Self {
             version,
             flags,
-            es_desc: es_desc.unwrap(),
+            es_desc,
         })
     }
 }
@@ -304,7 +307,7 @@ impl<R: Read + Seek> ReadDesc<&mut R> for ESDescriptor {
             current = reader.stream_position()?;
         }
 
-        Ok(ESDescriptor {
+        Ok(Self {
             es_id,
             dec_config: dec_config.unwrap_or_default(),
             sl_config: sl_config.unwrap_or_default(),
@@ -379,7 +382,7 @@ impl<R: Read + Seek> ReadDesc<&mut R> for DecoderConfigDescriptor {
             current = reader.stream_position()?;
         }
 
-        Ok(DecoderConfigDescriptor {
+        Ok(Self {
             object_type_indication,
             stream_type,
             up_stream,
@@ -463,7 +466,7 @@ impl<R: Read + Seek> ReadDesc<&mut R> for DecoderSpecificDescriptor {
             chan_conf = get_chan_conf(reader, byte_b, freq_index, false)?;
         }
 
-        Ok(DecoderSpecificDescriptor {
+        Ok(Self {
             profile,
             freq_index,
             chan_conf,
@@ -476,7 +479,7 @@ pub struct SLConfigDescriptor {}
 
 impl SLConfigDescriptor {
     pub fn new() -> Self {
-        SLConfigDescriptor {}
+        Self {}
     }
 }
 
@@ -494,6 +497,6 @@ impl<R: Read + Seek> ReadDesc<&mut R> for SLConfigDescriptor {
     fn read_desc(reader: &mut R, _size: u32) -> Result<Self> {
         reader.read_u8()?; // pre-defined
 
-        Ok(SLConfigDescriptor {})
+        Ok(Self {})
     }
 }

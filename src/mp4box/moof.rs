@@ -1,7 +1,10 @@
 use serde::Serialize;
 use std::io::{Read, Seek};
 
-use crate::mp4box::*;
+use crate::mp4box::{
+    box_start, skip_box, skip_bytes_to, BoxHeader, BoxType, Error, Mp4Box, ReadBox, Result,
+    HEADER_SIZE,
+};
 use crate::mp4box::{mfhd::MfhdBox, traf::TrafBox};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
@@ -22,7 +25,7 @@ impl MoofBox {
 
     pub fn get_size(&self) -> u64 {
         let mut size = HEADER_SIZE + self.mfhd.box_size();
-        for traf in self.trafs.iter() {
+        for traf in &self.trafs {
             size += traf.box_size();
         }
         size
@@ -39,7 +42,7 @@ impl Mp4Box for MoofBox {
     }
 
     fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(&self).unwrap())
+        Ok(serde_json::to_string(&self).expect("Failed to convert to JSON"))
     }
 
     fn summary(&self) -> Result<String> {
@@ -83,16 +86,12 @@ impl<R: Read + Seek> ReadBox<&mut R> for MoofBox {
             current = reader.stream_position()?;
         }
 
-        if mfhd.is_none() {
+        let Some(mfhd) = mfhd else {
             return Err(Error::BoxNotFound(BoxType::MfhdBox));
-        }
+        };
 
         skip_bytes_to(reader, start + size)?;
 
-        Ok(MoofBox {
-            start,
-            mfhd: mfhd.unwrap(),
-            trafs,
-        })
+        Ok(Self { start, mfhd, trafs })
     }
 }

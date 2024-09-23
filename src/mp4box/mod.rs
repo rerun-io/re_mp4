@@ -5,11 +5,10 @@
 //! * ISO/IEC 14496-17 - Streaming text format
 //! * [ISO 23009-1](https://www.iso.org/standard/79329.html) -Dynamic adaptive streaming over HTTP (DASH)
 //!
-//! http://developer.apple.com/documentation/QuickTime/QTFF/index.html
-//! http://www.adobe.com/devnet/video/articles/mp4_movie_atom.html
-//! http://mp4ra.org/#/atoms
+//! * <http://mp4ra.org/#/atoms>
 //!
 //! Supported Atoms:
+//! ```text
 //! ftyp
 //! moov
 //!     mvhd
@@ -54,14 +53,17 @@
 //!         trun
 //! mdat
 //! free
-//!
+//! ```
 
 use byteorder::{BigEndian, ReadBytesExt};
 use serde::Serialize;
 use std::convert::TryInto;
 use std::io::{Read, Seek, SeekFrom};
 
-use crate::*;
+use crate::{
+    AacConfig, DataType, Error, FixedPointI8, FixedPointU16, FixedPointU8, FourCC, Metadata,
+    MetadataKey, Result, TrackKind,
+};
 
 pub(crate) mod av01;
 pub(crate) mod avc1;
@@ -280,19 +282,19 @@ impl BoxHeader {
         reader.read_exact(&mut buf)?;
 
         // Get size.
-        let s = buf[0..4].try_into().unwrap();
-        let size = u32::from_be_bytes(s);
+        #[allow(clippy::unwrap_used)] // [u8; 4] from a slice that is 4 long cannot fail
+        let size = u32::from_be_bytes(buf[0..4].try_into().unwrap());
 
         // Get box type string.
-        let t = buf[4..8].try_into().unwrap();
-        let typ = u32::from_be_bytes(t);
+        #[allow(clippy::unwrap_used)] // [u8; 4] from a slice that is 4 long cannot fail
+        let typ = u32::from_be_bytes(buf[4..8].try_into().unwrap());
 
         // Get largesize if size is 1
         if size == 1 {
             reader.read_exact(&mut buf)?;
             let largesize = u64::from_be_bytes(buf);
 
-            Ok(BoxHeader {
+            Ok(Self {
                 name: BoxType::from(typ),
 
                 // Subtract the length of the serialized largesize, as callers assume `size - HEADER_SIZE` is the length
@@ -305,7 +307,7 @@ impl BoxHeader {
                 },
             })
         } else {
-            Ok(BoxHeader {
+            Ok(Self {
                 name: BoxType::from(typ),
                 size: size as u64,
             })

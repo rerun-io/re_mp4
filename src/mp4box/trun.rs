@@ -3,7 +3,10 @@ use serde::Serialize;
 use std::io::{Read, Seek};
 use std::mem::size_of;
 
-use crate::mp4box::*;
+use crate::mp4box::{
+    box_start, read_box_header_ext, skip_bytes_to, BoxType, Error, Mp4Box, ReadBox, Result,
+    HEADER_EXT_SIZE, HEADER_SIZE,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
 pub struct TrunBox {
@@ -37,22 +40,22 @@ impl TrunBox {
 
     pub fn get_size(&self) -> u64 {
         let mut sum = HEADER_SIZE + HEADER_EXT_SIZE + 4;
-        if TrunBox::FLAG_DATA_OFFSET & self.flags > 0 {
+        if Self::FLAG_DATA_OFFSET & self.flags > 0 {
             sum += 4;
         }
-        if TrunBox::FLAG_FIRST_SAMPLE_FLAGS & self.flags > 0 {
+        if Self::FLAG_FIRST_SAMPLE_FLAGS & self.flags > 0 {
             sum += 4;
         }
-        if TrunBox::FLAG_SAMPLE_DURATION & self.flags > 0 {
+        if Self::FLAG_SAMPLE_DURATION & self.flags > 0 {
             sum += 4 * self.sample_count as u64;
         }
-        if TrunBox::FLAG_SAMPLE_SIZE & self.flags > 0 {
+        if Self::FLAG_SAMPLE_SIZE & self.flags > 0 {
             sum += 4 * self.sample_count as u64;
         }
-        if TrunBox::FLAG_SAMPLE_FLAGS & self.flags > 0 {
+        if Self::FLAG_SAMPLE_FLAGS & self.flags > 0 {
             sum += 4 * self.sample_count as u64;
         }
-        if TrunBox::FLAG_SAMPLE_CTS & self.flags > 0 {
+        if Self::FLAG_SAMPLE_CTS & self.flags > 0 {
             sum += 4 * self.sample_count as u64;
         }
         sum
@@ -69,7 +72,7 @@ impl Mp4Box for TrunBox {
     }
 
     fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string(&self).unwrap())
+        Ok(serde_json::to_string(&self).expect("Failed to convert to JSON"))
     }
 
     fn summary(&self) -> Result<String> {
@@ -86,22 +89,22 @@ impl<R: Read + Seek> ReadBox<&mut R> for TrunBox {
 
         let header_size = HEADER_SIZE + HEADER_EXT_SIZE;
         let other_size = size_of::<u32>() // sample_count
-            + if TrunBox::FLAG_DATA_OFFSET & flags > 0 { size_of::<i32>() } else { 0 } // data_offset
-            + if TrunBox::FLAG_FIRST_SAMPLE_FLAGS & flags > 0 { size_of::<u32>() } else { 0 }; // first_sample_flags
-        let sample_size = if TrunBox::FLAG_SAMPLE_DURATION & flags > 0 { size_of::<u32>() } else { 0 } // sample_duration
-            + if TrunBox::FLAG_SAMPLE_SIZE & flags > 0 { size_of::<u32>() } else { 0 } // sample_size
-            + if TrunBox::FLAG_SAMPLE_FLAGS & flags > 0 { size_of::<u32>() } else { 0 } // sample_flags
-            + if TrunBox::FLAG_SAMPLE_CTS & flags > 0 { size_of::<u32>() } else { 0 }; // sample_composition_time_offset
+            + if Self::FLAG_DATA_OFFSET & flags > 0 { size_of::<i32>() } else { 0 } // data_offset
+            + if Self::FLAG_FIRST_SAMPLE_FLAGS & flags > 0 { size_of::<u32>() } else { 0 }; // first_sample_flags
+        let sample_size = if Self::FLAG_SAMPLE_DURATION & flags > 0 { size_of::<u32>() } else { 0 } // sample_duration
+            + if Self::FLAG_SAMPLE_SIZE & flags > 0 { size_of::<u32>() } else { 0 } // sample_size
+            + if Self::FLAG_SAMPLE_FLAGS & flags > 0 { size_of::<u32>() } else { 0 } // sample_flags
+            + if Self::FLAG_SAMPLE_CTS & flags > 0 { size_of::<u32>() } else { 0 }; // sample_composition_time_offset
 
         let sample_count = reader.read_u32::<BigEndian>()?;
 
-        let data_offset = if TrunBox::FLAG_DATA_OFFSET & flags > 0 {
+        let data_offset = if Self::FLAG_DATA_OFFSET & flags > 0 {
             Some(reader.read_i32::<BigEndian>()?)
         } else {
             None
         };
 
-        let first_sample_flags = if TrunBox::FLAG_FIRST_SAMPLE_FLAGS & flags > 0 {
+        let first_sample_flags = if Self::FLAG_FIRST_SAMPLE_FLAGS & flags > 0 {
             Some(reader.read_u32::<BigEndian>()?)
         } else {
             None
@@ -120,36 +123,36 @@ impl<R: Read + Seek> ReadBox<&mut R> for TrunBox {
                 "trun sample_count indicates more values than could fit in the box",
             ));
         }
-        if TrunBox::FLAG_SAMPLE_DURATION & flags > 0 {
+        if Self::FLAG_SAMPLE_DURATION & flags > 0 {
             sample_durations.reserve(sample_count as usize);
         }
-        if TrunBox::FLAG_SAMPLE_SIZE & flags > 0 {
+        if Self::FLAG_SAMPLE_SIZE & flags > 0 {
             sample_sizes.reserve(sample_count as usize);
         }
-        if TrunBox::FLAG_SAMPLE_FLAGS & flags > 0 {
+        if Self::FLAG_SAMPLE_FLAGS & flags > 0 {
             sample_flags.reserve(sample_count as usize);
         }
-        if TrunBox::FLAG_SAMPLE_CTS & flags > 0 {
+        if Self::FLAG_SAMPLE_CTS & flags > 0 {
             sample_cts.reserve(sample_count as usize);
         }
 
         for _ in 0..sample_count {
-            if TrunBox::FLAG_SAMPLE_DURATION & flags > 0 {
+            if Self::FLAG_SAMPLE_DURATION & flags > 0 {
                 let duration = reader.read_u32::<BigEndian>()?;
                 sample_durations.push(duration);
             }
 
-            if TrunBox::FLAG_SAMPLE_SIZE & flags > 0 {
+            if Self::FLAG_SAMPLE_SIZE & flags > 0 {
                 let sample_size = reader.read_u32::<BigEndian>()?;
                 sample_sizes.push(sample_size);
             }
 
-            if TrunBox::FLAG_SAMPLE_FLAGS & flags > 0 {
+            if Self::FLAG_SAMPLE_FLAGS & flags > 0 {
                 let sample_flag = reader.read_u32::<BigEndian>()?;
                 sample_flags.push(sample_flag);
             }
 
-            if TrunBox::FLAG_SAMPLE_CTS & flags > 0 {
+            if Self::FLAG_SAMPLE_CTS & flags > 0 {
                 let cts = reader.read_u32::<BigEndian>()?;
                 sample_cts.push(cts);
             }
@@ -157,7 +160,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for TrunBox {
 
         skip_bytes_to(reader, start + size)?;
 
-        Ok(TrunBox {
+        Ok(Self {
             version,
             flags,
             sample_count,
