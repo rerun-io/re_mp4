@@ -1,6 +1,6 @@
 use byteorder::{BigEndian, ReadBytesExt};
 use serde::Serialize;
-use std::io::{Read, Seek, };
+use std::io::{Read, Seek};
 use std::mem::size_of;
 
 use crate::mp4box::*;

@@ -1,5 +1,5 @@
 use std::ffi::CStr;
-use std::io::{Read, Seek, };
+use std::io::{Read, Seek};
 
 use byteorder::{BigEndian, ReadBytesExt};
 use serde::Serialize;

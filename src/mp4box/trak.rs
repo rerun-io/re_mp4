@@ -1,5 +1,5 @@
 use serde::Serialize;
-use std::io::{Read, Seek, };
+use std::io::{Read, Seek};
 
 use crate::meta::MetaBox;
 use crate::mp4box::*;
