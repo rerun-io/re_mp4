@@ -400,6 +400,7 @@ impl Mp4 {
     ///
     /// After this function is called, each track's [`Track::data`] may only be indexed by one of its samples' [`Sample::offset`]s.
     fn load_track_data<R: Read + Seek>(&mut self, reader: &mut R) -> Result<()> {
+        #[allow(clippy::iter_over_hash_type)] // what we do in the iteration is not order-dependend
         for track in self.tracks.values_mut() {
             for sample in &mut track.samples {
                 let data_offset = track.data.len();
