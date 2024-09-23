@@ -49,7 +49,7 @@ fn assert_video_snapshot(file_path: &str) {
     let bytes = std::fs::read(base_path.join(file_path)).unwrap();
     let video = re_mp4::read(&bytes).unwrap();
 
-    #[allow(clippy::iter_over_hash_type)] // what we do in the iteration is not order-dependend
+    #[allow(clippy::iter_over_hash_type)] // what we do in the iteration is not order-dependent
     for (id, track) in video.tracks() {
         if track.kind == re_mp4::TrackKind::Video {
             assert_snapshot(
