@@ -183,18 +183,16 @@ impl Mp4 {
                 let offset = get_sample_chunk_offset(stbl, chunk_index) + offset_in_chunk;
                 offset_in_chunk += size;
 
-                // DTS (decoding timestamp)
-                let dts = if sample_n > 0 {
+                let decode_timestamp = if sample_n > 0 {
                     samples[sample_n - 1].duration =
                         stts.entries[stts_run_index as usize].sample_delta as u64;
 
-                    samples[sample_n - 1].timestamp + samples[sample_n - 1].duration
+                    samples[sample_n - 1].decode_timestamp + samples[sample_n - 1].duration
                 } else {
                     0
                 };
 
-                // CTS (composition timestamp)
-                let cts = if let Some(ctts) = &stbl.ctts {
+                let composition_timestamp = if let Some(ctts) = &stbl.ctts {
                     if sample_n as i64 >= last_sample_in_ctts_run {
                         ctts_run_index += 1;
                         if last_sample_in_ctts_run < 0 {
@@ -204,9 +202,9 @@ impl Mp4 {
                             ctts.entries[ctts_run_index as usize].sample_count as i64;
                     }
 
-                    dts + ctts.entries[ctts_run_index as usize].sample_offset as u64
+                    decode_timestamp + ctts.entries[ctts_run_index as usize].sample_offset as u64
                 } else {
-                    dts
+                    decode_timestamp
                 };
 
                 let is_sync = if let Some(stss) = &stbl.stss {
@@ -227,7 +225,8 @@ impl Mp4 {
                     timescale,
                     size,
                     offset,
-                    timestamp: cts,
+                    decode_timestamp,
+                    composition_timestamp,
                     is_sync,
                     duration: 0, // filled once we know next sample timestamp
                 });
@@ -235,7 +234,7 @@ impl Mp4 {
             }
 
             if let Some(last_sample) = samples.last_mut() {
-                last_sample.duration = trak.mdia.mdhd.duration - last_sample.timestamp;
+                last_sample.duration = trak.mdia.mdhd.duration - last_sample.decode_timestamp;
             }
 
             tracks.insert(
@@ -313,21 +312,22 @@ impl Mp4 {
                             sample_flags = trun.first_sample_flags.unwrap_or(sample_flags);
                         }
 
-                        let mut dts = 0;
+                        let mut decode_timestamp = 0;
                         if track.first_traf_merged || sample_n > 0 {
                             let prev = &track.samples[track.samples.len() - 1];
-                            dts = prev.timestamp + prev.duration;
+                            decode_timestamp = prev.decode_timestamp + prev.duration;
                         } else {
                             if let Some(tfdt) = &traf.tfdt {
-                                dts = tfdt.base_media_decode_time;
+                                decode_timestamp = tfdt.base_media_decode_time;
                             }
                             track.first_traf_merged = true;
                         }
 
-                        let cts = if trun.flags & TrunBox::FLAG_SAMPLE_CTS != 0 {
-                            dts + trun.sample_cts.get(sample_n).copied().unwrap_or(0) as u64
+                        let composition_timestamp = if trun.flags & TrunBox::FLAG_SAMPLE_CTS != 0 {
+                            decode_timestamp
+                                + trun.sample_cts.get(sample_n).copied().unwrap_or(0) as u64
                         } else {
-                            dts
+                            decode_timestamp
                         };
 
                         let duration = trun
@@ -381,7 +381,8 @@ impl Mp4 {
                             size: sample_size,
                             offset: sample_offset,
                             timescale: trak.mdia.mdhd.timescale as u64,
-                            timestamp: cts,
+                            decode_timestamp,
+                            composition_timestamp,
                             duration,
                         });
                     }
@@ -417,7 +418,7 @@ impl Mp4 {
                 track
                     .samples
                     .last()
-                    .map(|v| v.timestamp + v.duration)
+                    .map(|v| v.decode_timestamp + v.duration)
                     .unwrap_or_default()
             } else {
                 track.duration
@@ -435,18 +436,14 @@ pub struct Track {
     pub height: u16,
 
     pub track_id: u32,
-    timescale: u64,
-    duration: u64,
+    pub timescale: u64,
+    pub duration: u64,
     pub kind: Option<TrackKind>,
     pub samples: Vec<Sample>,
     pub data: Vec<u8>,
 }
 
 impl Track {
-    pub fn duration_ms(&self) -> f64 {
-        (self.duration as f64 * 1e3) / self.timescale as f64
-    }
-
     pub fn trak<'a>(&self, mp4: &'a Mp4) -> &'a TrakBox {
         mp4.moov
             .traks
@@ -564,38 +561,10 @@ pub struct Sample {
     pub is_sync: bool,
     pub size: u64,
     pub offset: u64,
-    timescale: u64,
-    timestamp: u64,
-    duration: u64,
-}
-
-impl Sample {
-    pub fn timestamp_ms(&self) -> f64 {
-        (self.timestamp as f64 * 1e3) / self.timescale as f64
-    }
-
-    pub fn duration_ms(&self) -> f64 {
-        (self.duration as f64 * 1e3) / self.timescale as f64
-    }
-
-    pub fn timestamp_us(&self) -> f64 {
-        (self.timestamp as f64 * 1e6) / self.timescale as f64
-    }
-
-    pub fn duration_us(&self) -> f64 {
-        (self.duration as f64 * 1e6) / self.timescale as f64
-    }
-}
-
-impl Mp4 {
-    pub fn metadata(&self) -> impl Metadata<'_> {
-        self.moov.udta.as_ref().and_then(|udta| {
-            udta.meta.as_ref().and_then(|meta| match meta {
-                MetaBox::Mdir { ilst } => ilst.as_ref(),
-                _ => None,
-            })
-        })
-    }
+    pub timescale: u64,
+    pub decode_timestamp: u64,
+    pub composition_timestamp: u64,
+    pub duration: u64,
 }
 
 impl std::fmt::Debug for Track {
@@ -603,7 +572,8 @@ impl std::fmt::Debug for Track {
         f.debug_struct("Track")
             .field("first_traf_merged", &self.first_traf_merged)
             .field("kind", &self.kind)
-            .field("duration_ms", &self.duration_ms())
+            .field("timescale", &self.timescale)
+            .field("duration", &self.duration)
             .finish()
     }
 }
@@ -614,8 +584,9 @@ impl std::fmt::Debug for Sample {
             .field("is_sync", &self.is_sync)
             .field("size", &self.size)
             .field("offset", &self.offset)
-            .field("timestamp", &self.timestamp_ms())
-            .field("duration", &self.duration_ms())
+            .field("decode_timestamp", &self.decode_timestamp)
+            .field("composition_timestamp", &self.composition_timestamp)
+            .field("duration", &self.duration)
             .finish()
     }
 }
