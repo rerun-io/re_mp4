@@ -143,53 +143,47 @@ impl<R: Read + Seek> ReadBox<&mut R> for MetaBox {
 
         let mut ilst = None;
 
-        match hdlr.handler_type {
-            MDIR => {
-                while current < end {
-                    // Get box header.
-                    let header = BoxHeader::read(reader)?;
-                    let BoxHeader { name, size: s } = header;
+        if hdlr.handler_type == MDIR {
+            while current < end {
+                // Get box header.
+                let header = BoxHeader::read(reader)?;
+                let BoxHeader { name, size: s } = header;
 
-                    match name {
-                        BoxType::IlstBox => {
-                            ilst = Some(IlstBox::read_box(reader, s)?);
-                        }
-                        _ => {
-                            // XXX warn!()
-                            skip_box(reader, s)?;
-                        }
+                match name {
+                    BoxType::IlstBox => {
+                        ilst = Some(IlstBox::read_box(reader, s)?);
                     }
-
-                    current = reader.stream_position()?;
+                    _ => {
+                        // XXX warn!()
+                        skip_box(reader, s)?;
+                    }
                 }
 
-                Ok(Self::Mdir { ilst })
+                current = reader.stream_position()?;
             }
-            _ => {
-                let mut data = Vec::new();
 
-                while current < end {
-                    // Get box header.
-                    let header = BoxHeader::read(reader)?;
-                    let BoxHeader { name, size: s } = header;
+            Ok(Self::Mdir { ilst })
+        } else {
+            let mut data = Vec::new();
 
-                    match name {
-                        BoxType::HdlrBox => {
-                            skip_box(reader, s)?;
-                        }
-                        _ => {
-                            let mut box_data = vec![0; (s - HEADER_SIZE) as usize];
-                            reader.read_exact(&mut box_data)?;
+            while current < end {
+                // Get box header.
+                let header = BoxHeader::read(reader)?;
+                let BoxHeader { name, size: s } = header;
 
-                            data.push((name, box_data));
-                        }
-                    }
+                if name == BoxType::HdlrBox {
+                    skip_box(reader, s)?;
+                } else {
+                    let mut box_data = vec![0; (s - HEADER_SIZE) as usize];
+                    reader.read_exact(&mut box_data)?;
 
-                    current = reader.stream_position()?;
+                    data.push((name, box_data));
                 }
 
-                Ok(Self::Unknown { hdlr, data })
+                current = reader.stream_position()?;
             }
+
+            Ok(Self::Unknown { hdlr, data })
         }
     }
 }

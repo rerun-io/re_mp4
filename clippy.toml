@@ -71,6 +71,7 @@ doc-valid-idents = [
   "OBJ",
   "OpenGL",
   "PyPI",
+  "QuickTime",
   "sRGB",
   "sRGBA",
   "WebGL",

@@ -22,11 +22,7 @@ impl IlstBox {
     }
 
     pub fn get_size(&self) -> u64 {
-        let mut size = HEADER_SIZE;
-        for item in self.items.values() {
-            size += item.get_size();
-        }
-        size
+        HEADER_SIZE + self.items.values().map(|item| item.get_size()).sum::<u64>()
     }
 }
 

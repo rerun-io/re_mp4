@@ -132,8 +132,10 @@ fn read_null_terminated_utf8_string<R: Read + Seek>(reader: &mut R) -> Result<St
             break;
         }
     }
+    #[allow(unsafe_code)]
+    // SAFETY: we ensure there is exactly one nul-byte at the end of the slice
     if let Ok(str) = unsafe { CStr::from_bytes_with_nul_unchecked(&bytes) }.to_str() {
-        Ok(str.to_string())
+        Ok(str.to_owned())
     } else {
         Err(Error::InvalidData("invalid utf8"))
     }
