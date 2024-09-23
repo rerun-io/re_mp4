@@ -51,7 +51,7 @@ fn assert_video_snapshot(file_path: &str) {
 
     #[allow(clippy::iter_over_hash_type)] // what we do in the iteration is not order-dependent
     for (id, track) in video.tracks() {
-        if track.kind == re_mp4::TrackKind::Video {
+        if track.kind == Some(re_mp4::TrackKind::Video) {
             assert_snapshot(
                 &base_path.join(format!("{file_path}.track_{id}.bin")),
                 &track.data,
@@ -68,7 +68,7 @@ fn assert_video_snapshot(file_path: &str) {
                     track.width,
                     track.height,
                     track.samples.len(),
-                    get_track_description(track.trak(&video).unwrap()),
+                    get_track_description(track.trak(&video)),
                 )
                 .as_bytes(),
             );

@@ -4,7 +4,7 @@ use std::io::{Read, Seek};
 
 use crate::mp4box::{
     box_start, read_box_header_ext, skip_bytes_to, Av01Box, Avc1Box, BoxHeader, BoxType, Error,
-    Hvc1Box, Mp4Box, Mp4aBox, ReadBox, Result, TrackKind, Tx3gBox, Vp08Box, Vp09Box,
+    FourCC, Hvc1Box, Mp4Box, Mp4aBox, ReadBox, Result, TrackKind, Tx3gBox, Vp08Box, Vp09Box,
     HEADER_EXT_SIZE, HEADER_SIZE,
 };
 
@@ -40,23 +40,26 @@ pub struct StsdBox {
     /// TTXT subtitle codec
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tx3g: Option<Tx3gBox>,
+
+    /// Unrecognized codecs
+    pub unknown: Vec<FourCC>,
 }
 
 impl StsdBox {
-    pub fn kind(&self) -> TrackKind {
+    pub fn kind(&self) -> Option<TrackKind> {
         if self.av01.is_some()
             || self.avc1.is_some()
             || self.hvc1.is_some()
             || self.vp08.is_some()
             || self.vp09.is_some()
         {
-            TrackKind::Video
+            Some(TrackKind::Video)
         } else if self.mp4a.is_some() {
-            TrackKind::Audio
+            Some(TrackKind::Audio)
         } else if self.tx3g.is_some() {
-            TrackKind::Subtitle
+            Some(TrackKind::Subtitle)
         } else {
-            TrackKind::Video
+            None
         }
     }
 
@@ -117,6 +120,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for StsdBox {
         let mut vp09 = None;
         let mut mp4a = None;
         let mut tx3g = None;
+        let mut unknown = Vec::new();
 
         // Get box header.
         let header = BoxHeader::read(reader)?;
@@ -151,7 +155,9 @@ impl<R: Read + Seek> ReadBox<&mut R> for StsdBox {
             BoxType::Tx3gBox => {
                 tx3g = Some(Tx3gBox::read_box(reader, s)?);
             }
-            _ => {}
+            _ => {
+                unknown.push(name.into());
+            }
         }
 
         skip_bytes_to(reader, start + size)?;
@@ -166,6 +172,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for StsdBox {
             vp09,
             mp4a,
             tx3g,
+            unknown,
         })
     }
 }
