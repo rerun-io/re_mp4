@@ -5,7 +5,9 @@ use std::{
 
 use serde::Serialize;
 
-use crate::mp4box::*;
+use crate::mp4box::{
+    box_start, BigEndian, BoxType, DataType, Mp4Box, ReadBox, ReadBytesExt, Result, HEADER_SIZE,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
 pub struct DataBox {
@@ -58,6 +60,6 @@ impl<R: Read + Seek> ReadBox<&mut R> for DataBox {
         let mut data = vec![0u8; (start + size - current) as usize];
         reader.read_exact(&mut data)?;
 
-        Ok(DataBox { data, data_type })
+        Ok(Self { data, data_type })
     }
 }

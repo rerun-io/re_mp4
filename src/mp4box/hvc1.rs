@@ -2,7 +2,10 @@ use byteorder::{BigEndian, ReadBytesExt};
 use serde::Serialize;
 use std::io::{Read, Seek};
 
-use crate::mp4box::*;
+use crate::mp4box::{
+    box_start, skip_bytes, skip_bytes_to, value_u32, BoxHeader, BoxType, Error, FixedPointU16,
+    Mp4Box, RawBox, ReadBox, Result, HEADER_SIZE,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Hvc1Box {
@@ -22,7 +25,7 @@ pub struct Hvc1Box {
 
 impl Default for Hvc1Box {
     fn default() -> Self {
-        Hvc1Box {
+        Self {
             data_reference_index: 0,
             width: 0,
             height: 0,
@@ -100,7 +103,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for Hvc1Box {
 
             skip_bytes_to(reader, start + size)?;
 
-            Ok(Hvc1Box {
+            Ok(Self {
                 data_reference_index,
                 width,
                 height,
@@ -240,7 +243,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for HvcCBox {
 
                 reader.read_exact(&mut data)?;
 
-                nalus.push(HvcCArrayNalu { size, data })
+                nalus.push(HvcCArrayNalu { size, data });
             }
 
             arrays.push(HvcCArray {
@@ -250,7 +253,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for HvcCBox {
             });
         }
 
-        Ok(HvcCBox {
+        Ok(Self {
             configuration_version,
             general_profile_space,
             general_tier_flag,

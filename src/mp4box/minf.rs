@@ -1,7 +1,10 @@
 use serde::Serialize;
 use std::io::{Read, Seek};
 
-use crate::mp4box::*;
+use crate::mp4box::{
+    box_start, skip_box, skip_bytes_to, BoxHeader, BoxType, Error, Mp4Box, ReadBox, Result,
+    HEADER_SIZE,
+};
 use crate::mp4box::{dinf::DinfBox, smhd::SmhdBox, stbl::StblBox, vmhd::VmhdBox};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
@@ -106,7 +109,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for MinfBox {
 
         skip_bytes_to(reader, start + size)?;
 
-        Ok(MinfBox {
+        Ok(Self {
             vmhd,
             smhd,
             dinf: dinf.unwrap(),

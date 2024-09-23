@@ -1,7 +1,10 @@
 use serde::Serialize;
 use std::io::{Read, Seek};
 
-use crate::mp4box::*;
+use crate::mp4box::{
+    box_start, skip_box, skip_bytes_to, BoxHeader, BoxType, Error, Mp4Box, ReadBox, Result,
+    HEADER_SIZE,
+};
 use crate::mp4box::{
     co64::Co64Box, ctts::CttsBox, stco::StcoBox, stsc::StscBox, stsd::StsdBox, stss::StssBox,
     stsz::StszBox, stts::SttsBox,
@@ -149,7 +152,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for StblBox {
 
         skip_bytes_to(reader, start + size)?;
 
-        Ok(StblBox {
+        Ok(Self {
             stsd: stsd.unwrap(),
             stts: stts.unwrap(),
             ctts,

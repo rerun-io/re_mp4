@@ -2,7 +2,10 @@ use byteorder::{BigEndian, ReadBytesExt};
 use serde::Serialize;
 use std::io::{Read, Seek};
 
-use crate::mp4box::*;
+use crate::mp4box::{
+    box_start, read_box_header_ext, skip_bytes_to, BoxType, Mp4Box, ReadBox, Result,
+    HEADER_EXT_SIZE, HEADER_SIZE,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct MfhdBox {
@@ -13,7 +16,7 @@ pub struct MfhdBox {
 
 impl Default for MfhdBox {
     fn default() -> Self {
-        MfhdBox {
+        Self {
             version: 0,
             flags: 0,
             sequence_number: 1,
@@ -59,7 +62,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for MfhdBox {
 
         skip_bytes_to(reader, start + size)?;
 
-        Ok(MfhdBox {
+        Ok(Self {
             version,
             flags,
             sequence_number,

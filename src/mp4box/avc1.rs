@@ -2,7 +2,10 @@ use byteorder::{BigEndian, ReadBytesExt};
 use serde::Serialize;
 use std::io::{Read, Seek};
 
-use crate::mp4box::*;
+use crate::mp4box::{
+    box_start, skip_bytes, skip_bytes_to, value_u32, BoxHeader, BoxType, Error, FixedPointU16,
+    Mp4Box, RawBox, ReadBox, Result, HEADER_SIZE,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Avc1Box {
@@ -22,7 +25,7 @@ pub struct Avc1Box {
 
 impl Default for Avc1Box {
     fn default() -> Self {
-        Avc1Box {
+        Self {
             data_reference_index: 0,
             width: 0,
             height: 0,
@@ -106,7 +109,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for Avc1Box {
 
                 skip_bytes_to(reader, start + size)?;
 
-                return Ok(Avc1Box {
+                return Ok(Self {
                     data_reference_index,
                     width,
                     height,
@@ -157,10 +160,10 @@ impl Mp4Box for AvcCBox {
 
     fn box_size(&self) -> u64 {
         let mut size = HEADER_SIZE + 7;
-        for sps in self.sequence_parameter_sets.iter() {
+        for sps in &self.sequence_parameter_sets {
             size += sps.size() as u64;
         }
-        for pps in self.picture_parameter_sets.iter() {
+        for pps in &self.picture_parameter_sets {
             size += pps.size() as u64;
         }
         size
@@ -206,7 +209,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for AvcCBox {
 
         skip_bytes_to(reader, start + size)?;
 
-        Ok(AvcCBox {
+        Ok(Self {
             configuration_version,
             avc_profile_indication,
             profile_compatibility,
@@ -241,6 +244,6 @@ impl NalUnit {
         let length = reader.read_u16::<BigEndian>()? as usize;
         let mut bytes = vec![0u8; length];
         reader.read_exact(&mut bytes)?;
-        Ok(NalUnit { bytes })
+        Ok(Self { bytes })
     }
 }

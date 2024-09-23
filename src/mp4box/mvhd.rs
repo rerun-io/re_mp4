@@ -2,7 +2,10 @@ use byteorder::{BigEndian, ReadBytesExt};
 use serde::Serialize;
 use std::io::{Read, Seek};
 
-use crate::mp4box::*;
+use crate::mp4box::{
+    box_start, read_box_header_ext, skip_bytes, skip_bytes_to, tkhd, value_u32, value_u8, BoxType,
+    Error, FixedPointU16, FixedPointU8, Mp4Box, ReadBox, Result, HEADER_EXT_SIZE, HEADER_SIZE,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct MvhdBox {
@@ -42,7 +45,7 @@ impl MvhdBox {
 
 impl Default for MvhdBox {
     fn default() -> Self {
-        MvhdBox {
+        Self {
             version: 0,
             flags: 0,
             creation_time: 0,
@@ -134,7 +137,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for MvhdBox {
 
         skip_bytes_to(reader, start + size)?;
 
-        Ok(MvhdBox {
+        Ok(Self {
             version,
             flags,
             creation_time,

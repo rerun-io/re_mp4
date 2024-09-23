@@ -1,7 +1,10 @@
 use serde::Serialize;
 use std::io::{Read, Seek};
 
-use crate::mp4box::*;
+use crate::mp4box::{
+    box_start, skip_box, skip_bytes_to, BoxHeader, BoxType, Error, Mp4Box, ReadBox, Result,
+    HEADER_SIZE,
+};
 use crate::mp4box::{mehd::MehdBox, trex::TrexBox};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
@@ -17,7 +20,7 @@ impl MvexBox {
 
     pub fn get_size(&self) -> u64 {
         HEADER_SIZE
-            + self.mehd.as_ref().map(|x| x.box_size()).unwrap_or(0)
+            + self.mehd.as_ref().map_or(0, |x| x.box_size())
             + self.trexs.iter().map(|x| x.box_size()).sum::<u64>()
     }
 }
@@ -82,6 +85,6 @@ impl<R: Read + Seek> ReadBox<&mut R> for MvexBox {
 
         skip_bytes_to(reader, start + size)?;
 
-        Ok(MvexBox { mehd, trexs })
+        Ok(Self { mehd, trexs })
     }
 }

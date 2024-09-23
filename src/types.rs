@@ -3,8 +3,8 @@ use std::borrow::Cow;
 use std::convert::TryFrom;
 use std::fmt;
 
-use crate::mp4box::*;
-use crate::*;
+use crate::mp4box::{BoxType, Mp4Box};
+use crate::{Error, Result};
 
 pub use bytes::Bytes;
 pub use num_rational::Ratio;
@@ -107,32 +107,32 @@ impl std::str::FromStr for FourCC {
 
 impl From<u32> for FourCC {
     fn from(number: u32) -> Self {
-        FourCC {
+        Self {
             value: number.to_be_bytes(),
         }
     }
 }
 
 impl From<FourCC> for u32 {
-    fn from(fourcc: FourCC) -> u32 {
+    fn from(fourcc: FourCC) -> Self {
         (&fourcc).into()
     }
 }
 
 impl From<&FourCC> for u32 {
-    fn from(fourcc: &FourCC) -> u32 {
-        u32::from_be_bytes(fourcc.value)
+    fn from(fourcc: &FourCC) -> Self {
+        Self::from_be_bytes(fourcc.value)
     }
 }
 
 impl From<[u8; 4]> for FourCC {
-    fn from(value: [u8; 4]) -> FourCC {
-        FourCC { value }
+    fn from(value: [u8; 4]) -> Self {
+        Self { value }
     }
 }
 
 impl From<BoxType> for FourCC {
-    fn from(t: BoxType) -> FourCC {
+    fn from(t: BoxType) -> Self {
         let box_num: u32 = Into::into(t);
         From::from(box_num)
     }
@@ -175,9 +175,9 @@ pub enum TrackKind {
 impl fmt::Display for TrackKind {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let s = match self {
-            TrackKind::Video => DISPLAY_TYPE_VIDEO,
-            TrackKind::Audio => DISPLAY_TYPE_AUDIO,
-            TrackKind::Subtitle => DISPLAY_TYPE_SUBTITLE,
+            Self::Video => DISPLAY_TYPE_VIDEO,
+            Self::Audio => DISPLAY_TYPE_AUDIO,
+            Self::Subtitle => DISPLAY_TYPE_SUBTITLE,
         };
         write!(f, "{s}")
     }
@@ -185,11 +185,11 @@ impl fmt::Display for TrackKind {
 
 impl TryFrom<&str> for TrackKind {
     type Error = Error;
-    fn try_from(handler: &str) -> Result<TrackKind> {
+    fn try_from(handler: &str) -> Result<Self> {
         match handler {
-            HANDLER_TYPE_VIDEO => Ok(TrackKind::Video),
-            HANDLER_TYPE_AUDIO => Ok(TrackKind::Audio),
-            HANDLER_TYPE_SUBTITLE => Ok(TrackKind::Subtitle),
+            HANDLER_TYPE_VIDEO => Ok(Self::Video),
+            HANDLER_TYPE_AUDIO => Ok(Self::Audio),
+            HANDLER_TYPE_SUBTITLE => Ok(Self::Subtitle),
             _ => Err(Error::InvalidData("unsupported handler type")),
         }
     }
@@ -197,18 +197,18 @@ impl TryFrom<&str> for TrackKind {
 
 impl TryFrom<&FourCC> for TrackKind {
     type Error = Error;
-    fn try_from(fourcc: &FourCC) -> Result<TrackKind> {
+    fn try_from(fourcc: &FourCC) -> Result<Self> {
         match fourcc.value {
-            HANDLER_TYPE_VIDEO_FOURCC => Ok(TrackKind::Video),
-            HANDLER_TYPE_AUDIO_FOURCC => Ok(TrackKind::Audio),
-            HANDLER_TYPE_SUBTITLE_FOURCC => Ok(TrackKind::Subtitle),
+            HANDLER_TYPE_VIDEO_FOURCC => Ok(Self::Video),
+            HANDLER_TYPE_AUDIO_FOURCC => Ok(Self::Audio),
+            HANDLER_TYPE_SUBTITLE_FOURCC => Ok(Self::Subtitle),
             _ => Err(Error::InvalidData("unsupported handler type")),
         }
     }
 }
 
 impl From<TrackKind> for FourCC {
-    fn from(t: TrackKind) -> FourCC {
+    fn from(t: TrackKind) -> Self {
         match t {
             TrackKind::Video => HANDLER_TYPE_VIDEO_FOURCC.into(),
             TrackKind::Audio => HANDLER_TYPE_AUDIO_FOURCC.into(),
@@ -241,13 +241,13 @@ impl fmt::Display for MediaType {
 
 impl TryFrom<&str> for MediaType {
     type Error = Error;
-    fn try_from(media: &str) -> Result<MediaType> {
+    fn try_from(media: &str) -> Result<Self> {
         match media {
-            MEDIA_TYPE_H264 => Ok(MediaType::H264),
-            MEDIA_TYPE_H265 => Ok(MediaType::H265),
-            MEDIA_TYPE_VP9 => Ok(MediaType::VP9),
-            MEDIA_TYPE_AAC => Ok(MediaType::AAC),
-            MEDIA_TYPE_TTXT => Ok(MediaType::TTXT),
+            MEDIA_TYPE_H264 => Ok(Self::H264),
+            MEDIA_TYPE_H265 => Ok(Self::H265),
+            MEDIA_TYPE_VP9 => Ok(Self::VP9),
+            MEDIA_TYPE_AAC => Ok(Self::AAC),
+            MEDIA_TYPE_TTXT => Ok(Self::TTXT),
             _ => Err(Error::InvalidData("unsupported media type")),
         }
     }
@@ -289,15 +289,15 @@ pub enum AvcProfile {
 
 impl TryFrom<(u8, u8)> for AvcProfile {
     type Error = Error;
-    fn try_from(value: (u8, u8)) -> Result<AvcProfile> {
+    fn try_from(value: (u8, u8)) -> Result<Self> {
         let profile = value.0;
         let constraint_set1_flag = (value.1 & 0x40) >> 7;
         match (profile, constraint_set1_flag) {
-            (66, 1) => Ok(AvcProfile::AvcConstrainedBaseline),
-            (66, 0) => Ok(AvcProfile::AvcBaseline),
-            (77, _) => Ok(AvcProfile::AvcMain),
-            (88, _) => Ok(AvcProfile::AvcExtended),
-            (100, _) => Ok(AvcProfile::AvcHigh),
+            (66, 1) => Ok(Self::AvcConstrainedBaseline),
+            (66, 0) => Ok(Self::AvcBaseline),
+            (77, _) => Ok(Self::AvcMain),
+            (88, _) => Ok(Self::AvcExtended),
+            (100, _) => Ok(Self::AvcHigh),
             _ => Err(Error::InvalidData("unsupported avc profile")),
         }
     }
@@ -306,11 +306,11 @@ impl TryFrom<(u8, u8)> for AvcProfile {
 impl fmt::Display for AvcProfile {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let profile = match self {
-            AvcProfile::AvcConstrainedBaseline => "Constrained Baseline",
-            AvcProfile::AvcBaseline => "Baseline",
-            AvcProfile::AvcMain => "Main",
-            AvcProfile::AvcExtended => "Extended",
-            AvcProfile::AvcHigh => "High",
+            Self::AvcConstrainedBaseline => "Constrained Baseline",
+            Self::AvcBaseline => "Baseline",
+            Self::AvcMain => "Main",
+            Self::AvcExtended => "Extended",
+            Self::AvcHigh => "High",
         };
         write!(f, "{profile}")
     }
@@ -364,50 +364,50 @@ pub enum AudioObjectType {
 
 impl TryFrom<u8> for AudioObjectType {
     type Error = Error;
-    fn try_from(value: u8) -> Result<AudioObjectType> {
+    fn try_from(value: u8) -> Result<Self> {
         match value {
-            1 => Ok(AudioObjectType::AacMain),
-            2 => Ok(AudioObjectType::AacLowComplexity),
-            3 => Ok(AudioObjectType::AacScalableSampleRate),
-            4 => Ok(AudioObjectType::AacLongTermPrediction),
-            5 => Ok(AudioObjectType::SpectralBandReplication),
-            6 => Ok(AudioObjectType::AACScalable),
-            7 => Ok(AudioObjectType::TwinVQ),
-            8 => Ok(AudioObjectType::CodeExcitedLinearPrediction),
-            9 => Ok(AudioObjectType::HarmonicVectorExcitationCoding),
-            12 => Ok(AudioObjectType::TextToSpeechtInterface),
-            13 => Ok(AudioObjectType::MainSynthetic),
-            14 => Ok(AudioObjectType::WavetableSynthesis),
-            15 => Ok(AudioObjectType::GeneralMIDI),
-            16 => Ok(AudioObjectType::AlgorithmicSynthesis),
-            17 => Ok(AudioObjectType::ErrorResilientAacLowComplexity),
-            19 => Ok(AudioObjectType::ErrorResilientAacLongTermPrediction),
-            20 => Ok(AudioObjectType::ErrorResilientAacScalable),
-            21 => Ok(AudioObjectType::ErrorResilientAacTwinVQ),
-            22 => Ok(AudioObjectType::ErrorResilientAacBitSlicedArithmeticCoding),
-            23 => Ok(AudioObjectType::ErrorResilientAacLowDelay),
-            24 => Ok(AudioObjectType::ErrorResilientCodeExcitedLinearPrediction),
-            25 => Ok(AudioObjectType::ErrorResilientHarmonicVectorExcitationCoding),
-            26 => Ok(AudioObjectType::ErrorResilientHarmonicIndividualLinesNoise),
-            27 => Ok(AudioObjectType::ErrorResilientParametric),
-            28 => Ok(AudioObjectType::SinuSoidalCoding),
-            29 => Ok(AudioObjectType::ParametricStereo),
-            30 => Ok(AudioObjectType::MpegSurround),
-            32 => Ok(AudioObjectType::MpegLayer1),
-            33 => Ok(AudioObjectType::MpegLayer2),
-            34 => Ok(AudioObjectType::MpegLayer3),
-            35 => Ok(AudioObjectType::DirectStreamTransfer),
-            36 => Ok(AudioObjectType::AudioLosslessCoding),
-            37 => Ok(AudioObjectType::ScalableLosslessCoding),
-            38 => Ok(AudioObjectType::ScalableLosslessCodingNoneCore),
-            39 => Ok(AudioObjectType::ErrorResilientAacEnhancedLowDelay),
-            40 => Ok(AudioObjectType::SymbolicMusicRepresentationSimple),
-            41 => Ok(AudioObjectType::SymbolicMusicRepresentationMain),
-            42 => Ok(AudioObjectType::UnifiedSpeechAudioCoding),
-            43 => Ok(AudioObjectType::SpatialAudioObjectCoding),
-            44 => Ok(AudioObjectType::LowDelayMpegSurround),
-            45 => Ok(AudioObjectType::SpatialAudioObjectCodingDialogueEnhancement),
-            46 => Ok(AudioObjectType::AudioSync),
+            1 => Ok(Self::AacMain),
+            2 => Ok(Self::AacLowComplexity),
+            3 => Ok(Self::AacScalableSampleRate),
+            4 => Ok(Self::AacLongTermPrediction),
+            5 => Ok(Self::SpectralBandReplication),
+            6 => Ok(Self::AACScalable),
+            7 => Ok(Self::TwinVQ),
+            8 => Ok(Self::CodeExcitedLinearPrediction),
+            9 => Ok(Self::HarmonicVectorExcitationCoding),
+            12 => Ok(Self::TextToSpeechtInterface),
+            13 => Ok(Self::MainSynthetic),
+            14 => Ok(Self::WavetableSynthesis),
+            15 => Ok(Self::GeneralMIDI),
+            16 => Ok(Self::AlgorithmicSynthesis),
+            17 => Ok(Self::ErrorResilientAacLowComplexity),
+            19 => Ok(Self::ErrorResilientAacLongTermPrediction),
+            20 => Ok(Self::ErrorResilientAacScalable),
+            21 => Ok(Self::ErrorResilientAacTwinVQ),
+            22 => Ok(Self::ErrorResilientAacBitSlicedArithmeticCoding),
+            23 => Ok(Self::ErrorResilientAacLowDelay),
+            24 => Ok(Self::ErrorResilientCodeExcitedLinearPrediction),
+            25 => Ok(Self::ErrorResilientHarmonicVectorExcitationCoding),
+            26 => Ok(Self::ErrorResilientHarmonicIndividualLinesNoise),
+            27 => Ok(Self::ErrorResilientParametric),
+            28 => Ok(Self::SinuSoidalCoding),
+            29 => Ok(Self::ParametricStereo),
+            30 => Ok(Self::MpegSurround),
+            32 => Ok(Self::MpegLayer1),
+            33 => Ok(Self::MpegLayer2),
+            34 => Ok(Self::MpegLayer3),
+            35 => Ok(Self::DirectStreamTransfer),
+            36 => Ok(Self::AudioLosslessCoding),
+            37 => Ok(Self::ScalableLosslessCoding),
+            38 => Ok(Self::ScalableLosslessCodingNoneCore),
+            39 => Ok(Self::ErrorResilientAacEnhancedLowDelay),
+            40 => Ok(Self::SymbolicMusicRepresentationSimple),
+            41 => Ok(Self::SymbolicMusicRepresentationMain),
+            42 => Ok(Self::UnifiedSpeechAudioCoding),
+            43 => Ok(Self::SpatialAudioObjectCoding),
+            44 => Ok(Self::LowDelayMpegSurround),
+            45 => Ok(Self::SpatialAudioObjectCodingDialogueEnhancement),
+            46 => Ok(Self::AudioSync),
             _ => Err(Error::InvalidData("invalid audio object type")),
         }
     }
@@ -416,48 +416,48 @@ impl TryFrom<u8> for AudioObjectType {
 impl fmt::Display for AudioObjectType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let type_str = match self {
-            AudioObjectType::AacMain => "AAC Main",
-            AudioObjectType::AacLowComplexity => "LC",
-            AudioObjectType::AacScalableSampleRate => "SSR",
-            AudioObjectType::AacLongTermPrediction => "LTP",
-            AudioObjectType::SpectralBandReplication => "SBR",
-            AudioObjectType::AACScalable => "Scalable",
-            AudioObjectType::TwinVQ => "TwinVQ",
-            AudioObjectType::CodeExcitedLinearPrediction => "CELP",
-            AudioObjectType::HarmonicVectorExcitationCoding => "HVXC",
-            AudioObjectType::TextToSpeechtInterface => "TTSI",
-            AudioObjectType::MainSynthetic => "Main Synthetic",
-            AudioObjectType::WavetableSynthesis => "Wavetable Synthesis",
-            AudioObjectType::GeneralMIDI => "General MIDI",
-            AudioObjectType::AlgorithmicSynthesis => "Algorithmic Synthesis",
-            AudioObjectType::ErrorResilientAacLowComplexity => "ER AAC LC",
-            AudioObjectType::ErrorResilientAacLongTermPrediction => "ER AAC LTP",
-            AudioObjectType::ErrorResilientAacScalable => "ER AAC scalable",
-            AudioObjectType::ErrorResilientAacTwinVQ => "ER AAC TwinVQ",
-            AudioObjectType::ErrorResilientAacBitSlicedArithmeticCoding => "ER AAC BSAC",
-            AudioObjectType::ErrorResilientAacLowDelay => "ER AAC LD",
-            AudioObjectType::ErrorResilientCodeExcitedLinearPrediction => "ER CELP",
-            AudioObjectType::ErrorResilientHarmonicVectorExcitationCoding => "ER HVXC",
-            AudioObjectType::ErrorResilientHarmonicIndividualLinesNoise => "ER HILN",
-            AudioObjectType::ErrorResilientParametric => "ER Parametric",
-            AudioObjectType::SinuSoidalCoding => "SSC",
-            AudioObjectType::ParametricStereo => "Parametric Stereo",
-            AudioObjectType::MpegSurround => "MPEG surround",
-            AudioObjectType::MpegLayer1 => "MPEG Layer 1",
-            AudioObjectType::MpegLayer2 => "MPEG Layer 2",
-            AudioObjectType::MpegLayer3 => "MPEG Layer 3",
-            AudioObjectType::DirectStreamTransfer => "DST",
-            AudioObjectType::AudioLosslessCoding => "ALS",
-            AudioObjectType::ScalableLosslessCoding => "SLS",
-            AudioObjectType::ScalableLosslessCodingNoneCore => "SLS Non-core",
-            AudioObjectType::ErrorResilientAacEnhancedLowDelay => "ER AAC ELD",
-            AudioObjectType::SymbolicMusicRepresentationSimple => "SMR Simple",
-            AudioObjectType::SymbolicMusicRepresentationMain => "SMR Main",
-            AudioObjectType::UnifiedSpeechAudioCoding => "USAC",
-            AudioObjectType::SpatialAudioObjectCoding => "SAOC",
-            AudioObjectType::LowDelayMpegSurround => "LD MPEG Surround",
-            AudioObjectType::SpatialAudioObjectCodingDialogueEnhancement => "SAOC-DE",
-            AudioObjectType::AudioSync => "Audio Sync",
+            Self::AacMain => "AAC Main",
+            Self::AacLowComplexity => "LC",
+            Self::AacScalableSampleRate => "SSR",
+            Self::AacLongTermPrediction => "LTP",
+            Self::SpectralBandReplication => "SBR",
+            Self::AACScalable => "Scalable",
+            Self::TwinVQ => "TwinVQ",
+            Self::CodeExcitedLinearPrediction => "CELP",
+            Self::HarmonicVectorExcitationCoding => "HVXC",
+            Self::TextToSpeechtInterface => "TTSI",
+            Self::MainSynthetic => "Main Synthetic",
+            Self::WavetableSynthesis => "Wavetable Synthesis",
+            Self::GeneralMIDI => "General MIDI",
+            Self::AlgorithmicSynthesis => "Algorithmic Synthesis",
+            Self::ErrorResilientAacLowComplexity => "ER AAC LC",
+            Self::ErrorResilientAacLongTermPrediction => "ER AAC LTP",
+            Self::ErrorResilientAacScalable => "ER AAC scalable",
+            Self::ErrorResilientAacTwinVQ => "ER AAC TwinVQ",
+            Self::ErrorResilientAacBitSlicedArithmeticCoding => "ER AAC BSAC",
+            Self::ErrorResilientAacLowDelay => "ER AAC LD",
+            Self::ErrorResilientCodeExcitedLinearPrediction => "ER CELP",
+            Self::ErrorResilientHarmonicVectorExcitationCoding => "ER HVXC",
+            Self::ErrorResilientHarmonicIndividualLinesNoise => "ER HILN",
+            Self::ErrorResilientParametric => "ER Parametric",
+            Self::SinuSoidalCoding => "SSC",
+            Self::ParametricStereo => "Parametric Stereo",
+            Self::MpegSurround => "MPEG surround",
+            Self::MpegLayer1 => "MPEG Layer 1",
+            Self::MpegLayer2 => "MPEG Layer 2",
+            Self::MpegLayer3 => "MPEG Layer 3",
+            Self::DirectStreamTransfer => "DST",
+            Self::AudioLosslessCoding => "ALS",
+            Self::ScalableLosslessCoding => "SLS",
+            Self::ScalableLosslessCodingNoneCore => "SLS Non-core",
+            Self::ErrorResilientAacEnhancedLowDelay => "ER AAC ELD",
+            Self::SymbolicMusicRepresentationSimple => "SMR Simple",
+            Self::SymbolicMusicRepresentationMain => "SMR Main",
+            Self::UnifiedSpeechAudioCoding => "USAC",
+            Self::SpatialAudioObjectCoding => "SAOC",
+            Self::LowDelayMpegSurround => "LD MPEG Surround",
+            Self::SpatialAudioObjectCodingDialogueEnhancement => "SAOC-DE",
+            Self::AudioSync => "Audio Sync",
         };
         write!(f, "{type_str}")
     }
@@ -482,21 +482,21 @@ pub enum SampleFreqIndex {
 
 impl TryFrom<u8> for SampleFreqIndex {
     type Error = Error;
-    fn try_from(value: u8) -> Result<SampleFreqIndex> {
+    fn try_from(value: u8) -> Result<Self> {
         match value {
-            0x0 => Ok(SampleFreqIndex::Freq96000),
-            0x1 => Ok(SampleFreqIndex::Freq88200),
-            0x2 => Ok(SampleFreqIndex::Freq64000),
-            0x3 => Ok(SampleFreqIndex::Freq48000),
-            0x4 => Ok(SampleFreqIndex::Freq44100),
-            0x5 => Ok(SampleFreqIndex::Freq32000),
-            0x6 => Ok(SampleFreqIndex::Freq24000),
-            0x7 => Ok(SampleFreqIndex::Freq22050),
-            0x8 => Ok(SampleFreqIndex::Freq16000),
-            0x9 => Ok(SampleFreqIndex::Freq12000),
-            0xa => Ok(SampleFreqIndex::Freq11025),
-            0xb => Ok(SampleFreqIndex::Freq8000),
-            0xc => Ok(SampleFreqIndex::Freq7350),
+            0x0 => Ok(Self::Freq96000),
+            0x1 => Ok(Self::Freq88200),
+            0x2 => Ok(Self::Freq64000),
+            0x3 => Ok(Self::Freq48000),
+            0x4 => Ok(Self::Freq44100),
+            0x5 => Ok(Self::Freq32000),
+            0x6 => Ok(Self::Freq24000),
+            0x7 => Ok(Self::Freq22050),
+            0x8 => Ok(Self::Freq16000),
+            0x9 => Ok(Self::Freq12000),
+            0xa => Ok(Self::Freq11025),
+            0xb => Ok(Self::Freq8000),
+            0xc => Ok(Self::Freq7350),
             _ => Err(Error::InvalidData("invalid sampling frequency index")),
         }
     }
@@ -505,19 +505,19 @@ impl TryFrom<u8> for SampleFreqIndex {
 impl SampleFreqIndex {
     pub fn freq(&self) -> u32 {
         match *self {
-            SampleFreqIndex::Freq96000 => 96000,
-            SampleFreqIndex::Freq88200 => 88200,
-            SampleFreqIndex::Freq64000 => 64000,
-            SampleFreqIndex::Freq48000 => 48000,
-            SampleFreqIndex::Freq44100 => 44100,
-            SampleFreqIndex::Freq32000 => 32000,
-            SampleFreqIndex::Freq24000 => 24000,
-            SampleFreqIndex::Freq22050 => 22050,
-            SampleFreqIndex::Freq16000 => 16000,
-            SampleFreqIndex::Freq12000 => 12000,
-            SampleFreqIndex::Freq11025 => 11025,
-            SampleFreqIndex::Freq8000 => 8000,
-            SampleFreqIndex::Freq7350 => 7350,
+            Self::Freq96000 => 96000,
+            Self::Freq88200 => 88200,
+            Self::Freq64000 => 64000,
+            Self::Freq48000 => 48000,
+            Self::Freq44100 => 44100,
+            Self::Freq32000 => 32000,
+            Self::Freq24000 => 24000,
+            Self::Freq22050 => 22050,
+            Self::Freq16000 => 16000,
+            Self::Freq12000 => 12000,
+            Self::Freq11025 => 11025,
+            Self::Freq8000 => 8000,
+            Self::Freq7350 => 7350,
         }
     }
 }
@@ -535,15 +535,15 @@ pub enum ChannelConfig {
 
 impl TryFrom<u8> for ChannelConfig {
     type Error = Error;
-    fn try_from(value: u8) -> Result<ChannelConfig> {
+    fn try_from(value: u8) -> Result<Self> {
         match value {
-            0x1 => Ok(ChannelConfig::Mono),
-            0x2 => Ok(ChannelConfig::Stereo),
-            0x3 => Ok(ChannelConfig::Three),
-            0x4 => Ok(ChannelConfig::Four),
-            0x5 => Ok(ChannelConfig::Five),
-            0x6 => Ok(ChannelConfig::FiveOne),
-            0x7 => Ok(ChannelConfig::SevenOne),
+            0x1 => Ok(Self::Mono),
+            0x2 => Ok(Self::Stereo),
+            0x3 => Ok(Self::Three),
+            0x4 => Ok(Self::Four),
+            0x5 => Ok(Self::Five),
+            0x6 => Ok(Self::FiveOne),
+            0x7 => Ok(Self::SevenOne),
             _ => Err(Error::InvalidData("invalid channel configuration")),
         }
     }
@@ -552,13 +552,13 @@ impl TryFrom<u8> for ChannelConfig {
 impl fmt::Display for ChannelConfig {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let s = match self {
-            ChannelConfig::Mono => "mono",
-            ChannelConfig::Stereo => "stereo",
-            ChannelConfig::Three => "three",
-            ChannelConfig::Four => "four",
-            ChannelConfig::Five => "five",
-            ChannelConfig::FiveOne => "five.one",
-            ChannelConfig::SevenOne => "seven.one",
+            Self::Mono => "mono",
+            Self::Stereo => "stereo",
+            Self::Three => "three",
+            Self::Four => "four",
+            Self::Five => "five",
+            Self::FiveOne => "five.one",
+            Self::SevenOne => "seven.one",
         };
         write!(f, "{s}")
     }
@@ -668,18 +668,18 @@ pub enum DataType {
 #[allow(clippy::derivable_impls)]
 impl std::default::Default for DataType {
     fn default() -> Self {
-        DataType::Binary
+        Self::Binary
     }
 }
 
 impl TryFrom<u32> for DataType {
     type Error = Error;
-    fn try_from(value: u32) -> Result<DataType> {
+    fn try_from(value: u32) -> Result<Self> {
         match value {
-            0x000000 => Ok(DataType::Binary),
-            0x000001 => Ok(DataType::Text),
-            0x00000D => Ok(DataType::Image),
-            0x000015 => Ok(DataType::TempoCpil),
+            0x000000 => Ok(Self::Binary),
+            0x000001 => Ok(Self::Text),
+            0x00000D => Ok(Self::Image),
+            0x000015 => Ok(Self::TempoCpil),
             _ => Err(Error::InvalidData("invalid data type")),
         }
     }

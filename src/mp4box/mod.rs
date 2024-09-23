@@ -61,7 +61,10 @@ use serde::Serialize;
 use std::convert::TryInto;
 use std::io::{Read, Seek, SeekFrom};
 
-use crate::*;
+use crate::{
+    AacConfig, DataType, Error, FixedPointI8, FixedPointU16, FixedPointU8, FourCC, Metadata,
+    MetadataKey, Result, TrackKind,
+};
 
 pub(crate) mod av01;
 pub(crate) mod avc1;
@@ -292,7 +295,7 @@ impl BoxHeader {
             reader.read_exact(&mut buf)?;
             let largesize = u64::from_be_bytes(buf);
 
-            Ok(BoxHeader {
+            Ok(Self {
                 name: BoxType::from(typ),
 
                 // Subtract the length of the serialized largesize, as callers assume `size - HEADER_SIZE` is the length
@@ -305,7 +308,7 @@ impl BoxHeader {
                 },
             })
         } else {
-            Ok(BoxHeader {
+            Ok(Self {
                 name: BoxType::from(typ),
                 size: size as u64,
             })

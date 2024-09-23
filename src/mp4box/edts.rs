@@ -2,7 +2,9 @@ use serde::Serialize;
 use std::io::{Read, Seek};
 
 use crate::mp4box::elst::ElstBox;
-use crate::mp4box::*;
+use crate::mp4box::{
+    box_start, skip_bytes_to, BoxHeader, BoxType, Error, Mp4Box, ReadBox, Result, HEADER_SIZE,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
 pub struct EdtsBox {
@@ -10,7 +12,7 @@ pub struct EdtsBox {
 }
 
 impl EdtsBox {
-    pub(crate) fn new() -> EdtsBox {
+    pub(crate) fn new() -> Self {
         Default::default()
     }
 
@@ -50,7 +52,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for EdtsBox {
     fn read_box(reader: &mut R, size: u64) -> Result<Self> {
         let start = box_start(reader)?;
 
-        let mut edts = EdtsBox::new();
+        let mut edts = Self::new();
 
         let header = BoxHeader::read(reader)?;
         let BoxHeader { name, size: s } = header;
@@ -60,7 +62,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for EdtsBox {
             ));
         }
 
-        if let BoxType::ElstBox = name {
+        if name == BoxType::ElstBox {
             let elst = ElstBox::read_box(reader, s)?;
             edts.elst = Some(elst);
         }

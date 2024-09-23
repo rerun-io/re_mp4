@@ -3,7 +3,11 @@ use std::fmt::Write as _;
 use std::io::SeekFrom;
 use std::io::{Read, Seek};
 
-use crate::*;
+use crate::{
+    skip_box, Av01Box, Avc1Box, BoxHeader, BoxType, EmsgBox, Error, FtypBox, Hvc1Box, MetaBox,
+    Metadata, MoofBox, MoovBox, ReadBox, Result, StblBox, TfhdBox, TrackKind, TrakBox, TrunBox,
+    Vp08Box, Vp09Box,
+};
 
 #[derive(Debug)]
 pub struct Mp4 {
@@ -79,7 +83,7 @@ impl Mp4 {
             return Err(Error::BoxNotFound(BoxType::MoovBox));
         }
 
-        let mut this = Mp4 {
+        let mut this = Self {
             ftyp: ftyp.unwrap(),
             moov: moov.unwrap(),
             moofs,
@@ -515,7 +519,7 @@ impl Track {
                 reversed <<= 1;
                 val >>= 1;
             }
-            write!(&mut codec, ".{:X}", reversed).ok();
+            write!(&mut codec, ".{reversed:X}").ok();
 
             if hvcc.general_tier_flag {
                 codec.push_str(".H");

@@ -2,7 +2,10 @@ use serde::Serialize;
 use std::io::{Read, Seek};
 
 use crate::meta::MetaBox;
-use crate::mp4box::*;
+use crate::mp4box::{
+    box_start, skip_box, skip_bytes_to, BoxHeader, BoxType, Error, Mp4Box, ReadBox, Result,
+    HEADER_SIZE,
+};
 use crate::mp4box::{mvex::MvexBox, mvhd::MvhdBox, trak::TrakBox, udta::UdtaBox};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
@@ -29,7 +32,7 @@ impl MoovBox {
 
     pub fn get_size(&self) -> u64 {
         let mut size = HEADER_SIZE + self.mvhd.box_size();
-        for trak in self.traks.iter() {
+        for trak in &self.traks {
             size += trak.box_size();
         }
         if let Some(meta) = &self.meta {
@@ -115,7 +118,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for MoovBox {
 
         skip_bytes_to(reader, start + size)?;
 
-        Ok(MoovBox {
+        Ok(Self {
             mvhd: mvhd.unwrap(),
             meta,
             udta,

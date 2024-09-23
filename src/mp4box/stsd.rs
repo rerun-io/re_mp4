@@ -2,7 +2,11 @@ use byteorder::{BigEndian, ReadBytesExt};
 use serde::Serialize;
 use std::io::{Read, Seek};
 
-use crate::mp4box::*;
+use crate::mp4box::{
+    box_start, read_box_header_ext, skip_bytes_to, Av01Box, Avc1Box, BoxHeader, BoxType, Error,
+    Hvc1Box, Mp4Box, Mp4aBox, ReadBox, Result, TrackKind, Tx3gBox, Vp08Box, Vp09Box,
+    HEADER_EXT_SIZE, HEADER_SIZE,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
 pub struct StsdBox {
@@ -152,7 +156,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for StsdBox {
 
         skip_bytes_to(reader, start + size)?;
 
-        Ok(StsdBox {
+        Ok(Self {
             version,
             flags,
             av01,

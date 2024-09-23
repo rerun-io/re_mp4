@@ -1,7 +1,10 @@
 use serde::Serialize;
 use std::io::{Read, Seek};
 
-use crate::mp4box::*;
+use crate::mp4box::{
+    box_start, skip_box, skip_bytes_to, BoxHeader, BoxType, Error, Mp4Box, ReadBox, Result,
+    HEADER_SIZE,
+};
 use crate::mp4box::{mfhd::MfhdBox, traf::TrafBox};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
@@ -22,7 +25,7 @@ impl MoofBox {
 
     pub fn get_size(&self) -> u64 {
         let mut size = HEADER_SIZE + self.mfhd.box_size();
-        for traf in self.trafs.iter() {
+        for traf in &self.trafs {
             size += traf.box_size();
         }
         size
@@ -89,7 +92,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for MoofBox {
 
         skip_bytes_to(reader, start + size)?;
 
-        Ok(MoofBox {
+        Ok(Self {
             start,
             mfhd: mfhd.unwrap(),
             trafs,

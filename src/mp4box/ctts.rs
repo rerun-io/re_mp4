@@ -3,7 +3,10 @@ use serde::Serialize;
 use std::io::{Read, Seek};
 use std::mem::size_of;
 
-use crate::mp4box::*;
+use crate::mp4box::{
+    box_start, read_box_header_ext, skip_bytes_to, BoxType, Error, Mp4Box, ReadBox, Result,
+    HEADER_EXT_SIZE, HEADER_SIZE,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
 pub struct CttsBox {
@@ -81,7 +84,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for CttsBox {
 
         skip_bytes_to(reader, start + size)?;
 
-        Ok(CttsBox {
+        Ok(Self {
             version,
             flags,
             entries,

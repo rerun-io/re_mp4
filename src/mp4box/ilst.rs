@@ -6,7 +6,10 @@ use byteorder::ByteOrder;
 use serde::Serialize;
 
 use crate::mp4box::data::DataBox;
-use crate::mp4box::*;
+use crate::mp4box::{
+    box_start, skip_box, skip_bytes_to, BigEndian, BoxHeader, BoxType, DataType, Error, Metadata,
+    MetadataKey, Mp4Box, ReadBox, ReadBytesExt, Result, HEADER_SIZE,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
 pub struct IlstBox {
@@ -88,7 +91,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for IlstBox {
 
         skip_bytes_to(reader, start + size)?;
 
-        Ok(IlstBox { items })
+        Ok(Self { items })
     }
 }
 
@@ -140,7 +143,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for IlstItemBox {
 
         skip_bytes_to(reader, start + size)?;
 
-        Ok(IlstItemBox {
+        Ok(Self {
             data: data.unwrap(),
         })
     }

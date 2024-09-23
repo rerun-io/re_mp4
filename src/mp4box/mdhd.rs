@@ -3,7 +3,10 @@ use serde::Serialize;
 use std::char::{decode_utf16, REPLACEMENT_CHARACTER};
 use std::io::{Read, Seek};
 
-use crate::mp4box::*;
+use crate::mp4box::{
+    box_start, read_box_header_ext, skip_bytes_to, BoxType, Error, Mp4Box, ReadBox, Result,
+    HEADER_EXT_SIZE, HEADER_SIZE,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct MdhdBox {
@@ -36,7 +39,7 @@ impl MdhdBox {
 
 impl Default for MdhdBox {
     fn default() -> Self {
-        MdhdBox {
+        Self {
             version: 0,
             flags: 0,
             creation_time: 0,
@@ -98,7 +101,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for MdhdBox {
 
         skip_bytes_to(reader, start + size)?;
 
-        Ok(MdhdBox {
+        Ok(Self {
             version,
             flags,
             creation_time,
@@ -118,7 +121,7 @@ fn language_string(language: u16) -> String {
     lang[2] = ((language) & 0x1F) + 0x60;
 
     // Decode utf-16 encoded bytes into a string.
-    let lang_str = decode_utf16(lang.iter().cloned())
+    let lang_str = decode_utf16(lang.iter().copied())
         .map(|r| r.unwrap_or(REPLACEMENT_CHARACTER))
         .collect::<String>();
 

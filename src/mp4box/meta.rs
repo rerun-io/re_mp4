@@ -4,7 +4,10 @@ use serde::Serialize;
 
 use crate::mp4box::hdlr::HdlrBox;
 use crate::mp4box::ilst::IlstBox;
-use crate::mp4box::*;
+use crate::mp4box::{
+    box_start, skip_box, BigEndian, BoxHeader, BoxType, Error, FourCC, Mp4Box, ReadBox,
+    ReadBytesExt, Result, SeekFrom, HEADER_EXT_SIZE, HEADER_SIZE,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(tag = "hdlr")]
@@ -46,7 +49,7 @@ impl MetaBox {
                     + data
                         .iter()
                         .map(|(_, data)| data.len() as u64 + HEADER_SIZE)
-                        .sum::<u64>()
+                        .sum::<u64>();
             }
         }
         size
@@ -160,7 +163,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for MetaBox {
                     current = reader.stream_position()?;
                 }
 
-                Ok(MetaBox::Mdir { ilst })
+                Ok(Self::Mdir { ilst })
             }
             _ => {
                 let mut data = Vec::new();
@@ -185,7 +188,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for MetaBox {
                     current = reader.stream_position()?;
                 }
 
-                Ok(MetaBox::Unknown { hdlr, data })
+                Ok(Self::Unknown { hdlr, data })
             }
         }
     }
