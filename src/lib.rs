@@ -20,7 +20,7 @@ mod mp4box;
 pub use mp4box::*;
 
 mod reader;
-pub use reader::Mp4;
+pub use reader::{Mp4, Sample, Track};
 
 pub use types::{TrackId, TrackKind};
 
