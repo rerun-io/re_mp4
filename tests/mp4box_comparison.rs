@@ -1,7 +1,9 @@
-#![allow(dead_code)] // TODO(#3): enable tests again
 #![allow(clippy::unwrap_used)]
 
 use std::path::Path;
+
+const TEST_BASE_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests");
+const SAMPLE_BASE_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/samples");
 
 fn assert_snapshot(snapshot_path: &Path, contents: &[u8]) {
     // if file doesn't exist, create it
@@ -43,24 +45,41 @@ fn get_track_description(track: &re_mp4::TrakBox) -> Vec<u8> {
     }
 }
 
-const BASE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/samples");
-fn assert_video_snapshot(file_path: &str) {
-    let base_path = Path::new(BASE);
-    let bytes = std::fs::read(base_path.join(file_path)).unwrap();
+fn compare_video_snapshot_with_mp4box_output(video_path: &Path) {
+    let video_path_str = video_path.to_str().unwrap();
+    let base_path = video_path.parent().unwrap();
+
+    // Run mp4 box to parse a video file and dump the result to files.
+    assert!(
+        std::process::Command::new("node")
+            .arg(
+                Path::new(TEST_BASE_PATH)
+                    .join("mp4box_parse.mjs")
+                    .to_str()
+                    .unwrap()
+            )
+            .arg(video_path_str)
+            .status()
+            .unwrap()
+            .success(),
+        "Failed to run mp4box."
+    );
+
+    let bytes = std::fs::read(base_path.join(video_path)).unwrap();
     let video = re_mp4::read(&bytes).unwrap();
 
     for (id, track) in video.tracks() {
         if track.kind == Some(re_mp4::TrackKind::Video) {
             assert_snapshot(
-                &base_path.join(format!("{file_path}.track_{id}.bin")),
+                &base_path.join(format!("{video_path_str}.track_{id}.bin")),
                 &track.data,
             );
             assert_snapshot(
-                &base_path.join(format!("{file_path}.track_{id}.segments")),
+                &base_path.join(format!("{video_path_str}.track_{id}.segments")),
                 format!(r#"{:#?}"#, track.samples).as_bytes(),
             );
             assert_snapshot(
-                &base_path.join(format!("{file_path}.track_{id}.json")),
+                &base_path.join(format!("{video_path_str}.track_{id}.json")),
                 format!(
                     r#"{{ "codec": {:?}, "width": {}, "height": {}, "num_samples": {}, "description": {:?} }}"#,
                     track.codec_string(&video).unwrap_or("unknown".to_owned()),
@@ -71,6 +90,22 @@ fn assert_video_snapshot(file_path: &str) {
                 )
                 .as_bytes(),
             );
+        }
+    }
+}
+
+#[test]
+fn compare_video_snapshot_with_mp4box_output_bigbuckbunny() {
+    // List all mp4 files in the bigbuckbunny directory.
+    let base_path = Path::new(SAMPLE_BASE_PATH);
+    let bigbuckbunny_path = base_path.join("bigbuckbunny");
+
+    for entry in std::fs::read_dir(bigbuckbunny_path).unwrap() {
+        let entry = entry.unwrap();
+        let path = entry.path();
+        if path.is_file() && path.extension().map_or(false, |e| e == "mp4") {
+            println!("-- Comparing {path:?}");
+            compare_video_snapshot_with_mp4box_output(&path);
         }
     }
 }
