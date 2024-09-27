@@ -2,7 +2,8 @@
 
 use std::path::Path;
 
-use crate::{SAMPLE_BASE_PATH, TEST_BASE_PATH};
+const TEST_BASE_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests");
+const SAMPLE_BASE_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/samples");
 
 fn assert_snapshot(snapshot_path: &Path, contents: &[u8]) {
     // if file doesn't exist, create it
