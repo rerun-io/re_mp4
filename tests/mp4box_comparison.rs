@@ -50,17 +50,20 @@ fn compare_video_snapshot_with_mp4box_output(video_path: &Path) {
     let base_path = video_path.parent().unwrap();
 
     // Run mp4 box to parse a video file and dump the result to files.
-    assert!(std::process::Command::new("node")
-        .arg(
-            Path::new(TEST_BASE_PATH)
-                .join("mp4box_parse.mjs")
-                .to_str()
-                .unwrap()
-        )
-        .arg(video_path_str)
-        .status()
-        .unwrap()
-        .success());
+    assert!(
+        std::process::Command::new("node")
+            .arg(
+                Path::new(TEST_BASE_PATH)
+                    .join("mp4box_parse.mjs")
+                    .to_str()
+                    .unwrap()
+            )
+            .arg(video_path_str)
+            .status()
+            .unwrap()
+            .success(),
+        "Failed to run mp4box."
+    );
 
     let bytes = std::fs::read(base_path.join(video_path)).unwrap();
     let video = re_mp4::read(&bytes).unwrap();
