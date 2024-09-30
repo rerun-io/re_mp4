@@ -1,9 +1,8 @@
 #![allow(clippy::unwrap_used)]
 
-use std::path::Path;
+mod paths;
 
-const TEST_BASE_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests");
-const SAMPLE_BASE_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/samples");
+use std::path::Path;
 
 fn assert_snapshot(snapshot_path: &Path, contents: &[u8]) {
     // if file doesn't exist, create it
@@ -53,7 +52,7 @@ fn compare_video_snapshot_with_mp4box_output(video_path: &Path) {
     assert!(
         std::process::Command::new("node")
             .arg(
-                Path::new(TEST_BASE_PATH)
+                Path::new(paths::TEST_BASE_PATH)
                     .join("mp4box_parse.mjs")
                     .to_str()
                     .unwrap()
@@ -97,7 +96,7 @@ fn compare_video_snapshot_with_mp4box_output(video_path: &Path) {
 #[test]
 fn compare_video_snapshot_with_mp4box_output_bigbuckbunny() {
     // List all mp4 files in the bigbuckbunny directory.
-    let base_path = Path::new(SAMPLE_BASE_PATH);
+    let base_path = Path::new(paths::SAMPLE_BASE_PATH);
     let bigbuckbunny_path = base_path.join("bigbuckbunny");
 
     for entry in std::fs::read_dir(bigbuckbunny_path).unwrap() {
