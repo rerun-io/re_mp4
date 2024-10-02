@@ -7,6 +7,7 @@ use crate::mp4box::{
     Mp4Box, RawBox, ReadBox, Result, HEADER_SIZE,
 };
 
+/// HEVC/H.265 box found for both `avc1` and `hvc1`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct HevcBox {
     pub data_reference_index: u16,
