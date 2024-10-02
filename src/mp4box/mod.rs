@@ -122,7 +122,7 @@ pub use elst::ElstBox;
 pub use emsg::EmsgBox;
 pub use ftyp::FtypBox;
 pub use hdlr::HdlrBox;
-pub use hvc1::Hvc1Box;
+pub use hvc1::HevcBox;
 pub use ilst::IlstBox;
 pub use mdhd::MdhdBox;
 pub use mdia::MdiaBox;
@@ -234,7 +234,7 @@ boxtype! {
     AvcCBox => 0x61766343,
     Av01Box => 0x61763031,
     Av1CBox => 0x61763143,
-    // Hev1Box => 0x68657631,
+    Hev1Box => 0x68657631,
     Hvc1Box => 0x68766331,
     HvcCBox => 0x68766343,
     Mp4aBox => 0x6d703461,

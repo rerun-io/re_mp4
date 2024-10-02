@@ -8,7 +8,7 @@ use crate::mp4box::{
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct Hvc1Box {
+pub struct HevcBox {
     pub data_reference_index: u16,
     pub width: u16,
     pub height: u16,
@@ -20,10 +20,10 @@ pub struct Hvc1Box {
     pub vertresolution: FixedPointU16,
     pub frame_count: u16,
     pub depth: u16,
-    pub hvcc: RawBox<HvcCBox>,
+    pub hvcc: RawBox<HevcDecoderConfigurationRecord>,
 }
 
-impl Default for Hvc1Box {
+impl Default for HevcBox {
     fn default() -> Self {
         Self {
             data_reference_index: 0,
@@ -38,7 +38,7 @@ impl Default for Hvc1Box {
     }
 }
 
-impl Hvc1Box {
+impl HevcBox {
     pub fn get_type(&self) -> BoxType {
         BoxType::Hvc1Box
     }
@@ -48,7 +48,7 @@ impl Hvc1Box {
     }
 }
 
-impl Mp4Box for Hvc1Box {
+impl Mp4Box for HevcBox {
     fn box_type(&self) -> BoxType {
         self.get_type()
     }
@@ -70,7 +70,7 @@ impl Mp4Box for Hvc1Box {
     }
 }
 
-impl<R: Read + Seek> ReadBox<&mut R> for Hvc1Box {
+impl<R: Read + Seek> ReadBox<&mut R> for HevcBox {
     fn read_box(reader: &mut R, size: u64) -> Result<Self> {
         let start = box_start(reader)?;
 
@@ -99,7 +99,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for Hvc1Box {
             ));
         }
         if name == BoxType::HvcCBox {
-            let hvcc = RawBox::<HvcCBox>::read_box(reader, s)?;
+            let hvcc = RawBox::<HevcDecoderConfigurationRecord>::read_box(reader, s)?;
 
             skip_bytes_to(reader, start + size)?;
 
@@ -119,8 +119,12 @@ impl<R: Read + Seek> ReadBox<&mut R> for Hvc1Box {
     }
 }
 
+// Naming this box is a bit of a mess. It sometimes gets referred to as
+// Hvcc box but in fact it is shared by 'hvc1' and 'hev1'.
+// Going with what ffmpeg does here and be more explicit.
+// https://ffmpeg.org/doxygen/6.0/structHEVCDecoderConfigurationRecord.html
 #[derive(Default, Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct HvcCBox {
+pub struct HevcDecoderConfigurationRecord {
     pub configuration_version: u8,
     pub general_profile_space: u8,
     pub general_tier_flag: bool,
@@ -141,7 +145,7 @@ pub struct HvcCBox {
     pub arrays: Vec<HvcCArray>,
 }
 
-impl HvcCBox {
+impl HevcDecoderConfigurationRecord {
     pub fn new() -> Self {
         Self {
             configuration_version: 1,
@@ -150,7 +154,7 @@ impl HvcCBox {
     }
 }
 
-impl Mp4Box for HvcCBox {
+impl Mp4Box for HevcDecoderConfigurationRecord {
     fn box_type(&self) -> BoxType {
         BoxType::HvcCBox
     }
@@ -205,7 +209,7 @@ pub struct HvcCArray {
     pub nalus: Vec<HvcCArrayNalu>,
 }
 
-impl<R: Read + Seek> ReadBox<&mut R> for HvcCBox {
+impl<R: Read + Seek> ReadBox<&mut R> for HevcDecoderConfigurationRecord {
     fn read_box(reader: &mut R, _size: u64) -> Result<Self> {
         let configuration_version = reader.read_u8()?;
         let params = reader.read_u8()?;

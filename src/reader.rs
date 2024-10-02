@@ -4,7 +4,7 @@ use std::io::SeekFrom;
 use std::io::{Read, Seek};
 
 use crate::{
-    skip_box, Av01Box, Avc1Box, BoxHeader, BoxType, EmsgBox, Error, FtypBox, Hvc1Box, MoofBox,
+    skip_box, Av01Box, Avc1Box, BoxHeader, BoxType, EmsgBox, Error, FtypBox, HevcBox, MoofBox,
     MoovBox, ReadBox, Result, StblBox, StsdBoxContent, TfhdBox, TrackId, TrackKind, TrakBox,
     TrunBox, Vp08Box, Vp09Box,
 };
@@ -475,7 +475,9 @@ impl Track {
         match &sample_description.contents {
             StsdBoxContent::Av01(content) => Some(content.av1c.raw.clone()),
             StsdBoxContent::Avc1(content) => Some(content.avcc.raw.clone()),
-            StsdBoxContent::Hvc1(content) => Some(content.hvcc.raw.clone()),
+            StsdBoxContent::Hev1(content) | StsdBoxContent::Hvc1(content) => {
+                Some(content.hvcc.raw.clone())
+            }
             StsdBoxContent::Vp08(content) => Some(content.vpcc.raw.clone()),
             StsdBoxContent::Vp09(content) => Some(content.vpcc.raw.clone()),
             StsdBoxContent::Mp4a(_) | StsdBoxContent::Tx3g(_) | StsdBoxContent::Unknown(_) => None,
@@ -503,50 +505,12 @@ impl Track {
                 format!("avc1.{profile:02X}{constraint:02X}{level:02X}")
             }
 
-            StsdBoxContent::Hvc1(Hvc1Box { hvcc, .. }) => {
-                let mut codec = "hvc1".to_owned();
-                match hvcc.general_profile_space {
-                    1 => codec.push_str(".A"),
-                    2 => codec.push_str(".B"),
-                    3 => codec.push_str(".C"),
-                    _ => {}
-                }
-                write!(&mut codec, ".{}", hvcc.general_profile_idc).ok();
+            StsdBoxContent::Hvc1(HevcBox { hvcc, .. }) => {
+                format!("hvc1{}", hevc_codec_details(hvcc))
+            }
 
-                let mut val = hvcc.general_profile_compatibility_flags;
-                let mut reversed = 0;
-                for i in 0..32 {
-                    reversed |= val & 1;
-                    if i == 31 {
-                        break;
-                    }
-                    reversed <<= 1;
-                    val >>= 1;
-                }
-                write!(&mut codec, ".{reversed:X}").ok();
-
-                if hvcc.general_tier_flag {
-                    codec.push_str(".H");
-                } else {
-                    codec.push_str(".L");
-                }
-                write!(&mut codec, "{}", hvcc.general_level_idc).ok();
-
-                let mut constraint = [0u8; 6];
-                constraint
-                    .copy_from_slice(&hvcc.general_constraint_indicator_flag.to_be_bytes()[2..]);
-                let mut has_byte = false;
-                let mut i = 5isize;
-                while i >= 0 {
-                    let v = constraint[i as usize];
-                    if v > 0 || has_byte {
-                        write!(&mut codec, ".{v:00X}").ok();
-                        has_byte = true;
-                    }
-                    i -= 1;
-                }
-
-                codec
+            StsdBoxContent::Hev1(HevcBox { hvcc, .. }) => {
+                format!("hev1{}", hevc_codec_details(hvcc))
             }
 
             StsdBoxContent::Vp08(Vp08Box { vpcc, .. }) => {
@@ -570,6 +534,51 @@ impl Track {
             }
         })
     }
+}
+
+fn hevc_codec_details(hvcc: &crate::hvc1::HevcDecoderConfigurationRecord) -> String {
+    let mut codec = String::new();
+    match hvcc.general_profile_space {
+        1 => codec.push_str(".A"),
+        2 => codec.push_str(".B"),
+        3 => codec.push_str(".C"),
+        _ => {}
+    }
+    write!(&mut codec, ".{}", hvcc.general_profile_idc).ok();
+
+    let mut val = hvcc.general_profile_compatibility_flags;
+    let mut reversed = 0;
+    for i in 0..32 {
+        reversed |= val & 1;
+        if i == 31 {
+            break;
+        }
+        reversed <<= 1;
+        val >>= 1;
+    }
+    write!(&mut codec, ".{reversed:X}").ok();
+
+    if hvcc.general_tier_flag {
+        codec.push_str(".H");
+    } else {
+        codec.push_str(".L");
+    }
+    write!(&mut codec, "{}", hvcc.general_level_idc).ok();
+
+    let mut constraint = [0u8; 6];
+    constraint.copy_from_slice(&hvcc.general_constraint_indicator_flag.to_be_bytes()[2..]);
+    let mut has_byte = false;
+    let mut i = 5isize;
+    while i >= 0 {
+        let v = constraint[i as usize];
+        if v > 0 || has_byte {
+            write!(&mut codec, ".{v:00X}").ok();
+            has_byte = true;
+        }
+        i -= 1;
+    }
+
+    codec
 }
 
 #[derive(Default, Clone, Copy)]

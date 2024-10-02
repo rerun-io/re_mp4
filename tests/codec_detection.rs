@@ -52,13 +52,12 @@ fn parse_hvc1() {
     });
 }
 
-// TODO: Make this work!
-// #[test]
-// fn parse_hev1() {
-//     test_codec_parsing("bigbuckbunny/hev1.mp4", "hev1", |stsd_box: &StsdBox| {
-//         assert!(matches!(stsd_box.contents, StsdBoxContent::Hvc1(_)));
-//     });
-// }
+#[test]
+fn parse_hev1() {
+    test_codec_parsing("bigbuckbunny/hev1.mp4", "hev1", |stsd_box: &StsdBox| {
+        assert!(matches!(stsd_box.contents, StsdBoxContent::Hev1(_)));
+    });
+}
 
 #[test]
 fn parse_vp8() {

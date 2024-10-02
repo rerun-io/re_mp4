@@ -4,7 +4,7 @@ use std::io::{Read, Seek};
 
 use crate::mp4box::{
     box_start, read_box_header_ext, skip_bytes_to, Av01Box, Avc1Box, BoxHeader, BoxType, Error,
-    FourCC, Hvc1Box, Mp4Box, Mp4aBox, ReadBox, Result, TrackKind, Tx3gBox, Vp08Box, Vp09Box,
+    FourCC, HevcBox, Mp4Box, Mp4aBox, ReadBox, Result, TrackKind, Tx3gBox, Vp08Box, Vp09Box,
     HEADER_EXT_SIZE, HEADER_SIZE,
 };
 
@@ -19,14 +19,15 @@ pub enum StsdBoxContent {
 
     /// HVC1 video codec (h.265)
     ///
-    /// h.265 comes in two flavors: hev1 and hvc1.
-    ///
     /// hvc1 parameter sets are stored out-of-band in the sample entry
-    /// (i.e. below the Sample Description Box ( stsd ) box)
+    /// (i.e. below the Sample Description Box (stsd) box)
+    Hvc1(HevcBox),
+
+    /// HEV1 video codec (h.265)
     ///
     /// hev1 parameter sets are stored out-of-band in the sample entry and/or in-band in the samples
     /// (i.e. SPS/PPS/VPS NAL units in the bitstream/ mdat box)
-    Hvc1(Hvc1Box),
+    Hev1(HevcBox),
 
     /// VP8 video codec
     Vp08(Vp08Box),
@@ -60,11 +61,12 @@ pub struct StsdBox {
 impl StsdBox {
     pub fn kind(&self) -> Option<TrackKind> {
         match &self.contents {
-            StsdBoxContent::Av01(_) => Some(TrackKind::Video),
-            StsdBoxContent::Avc1(_) => Some(TrackKind::Video),
-            StsdBoxContent::Hvc1(_) => Some(TrackKind::Video),
-            StsdBoxContent::Vp08(_) => Some(TrackKind::Video),
-            StsdBoxContent::Vp09(_) => Some(TrackKind::Video),
+            StsdBoxContent::Av01(_)
+            | StsdBoxContent::Avc1(_)
+            | StsdBoxContent::Hev1(_)
+            | StsdBoxContent::Hvc1(_)
+            | StsdBoxContent::Vp08(_)
+            | StsdBoxContent::Vp09(_) => Some(TrackKind::Video),
             StsdBoxContent::Mp4a(_) => Some(TrackKind::Audio),
             StsdBoxContent::Tx3g(_) => Some(TrackKind::Subtitle),
             StsdBoxContent::Unknown(_) => None,
@@ -82,12 +84,14 @@ impl StsdBox {
             + match &self.contents {
                 StsdBoxContent::Av01(contents) => contents.box_size(),
                 StsdBoxContent::Avc1(contents) => contents.box_size(),
-                StsdBoxContent::Hvc1(contents) => contents.box_size(),
+                StsdBoxContent::Hev1(contents) | StsdBoxContent::Hvc1(contents) => {
+                    contents.box_size()
+                }
                 StsdBoxContent::Vp08(contents) => contents.box_size(),
                 StsdBoxContent::Vp09(contents) => contents.box_size(),
                 StsdBoxContent::Mp4a(contents) => contents.box_size(),
                 StsdBoxContent::Tx3g(contents) => contents.box_size(),
-                StsdBoxContent::Unknown(four_cc) => 0,
+                StsdBoxContent::Unknown(_) => 0,
             }
     }
 }
@@ -133,7 +137,8 @@ impl<R: Read + Seek> ReadBox<&mut R> for StsdBox {
             // According to MPEG-4 part 15, sections 5.4.2.1.2 and 5.4.4 (or the whole 5.4 section in general),
             // the Avc1Box and Avc3Box are identical, but the Avc3Box is used in some cases.
             BoxType::Avc1Box => StsdBoxContent::Avc1(Avc1Box::read_box(reader, s)?),
-            BoxType::Hvc1Box => StsdBoxContent::Hvc1(Hvc1Box::read_box(reader, s)?),
+            BoxType::Hvc1Box => StsdBoxContent::Hvc1(HevcBox::read_box(reader, s)?),
+            BoxType::Hev1Box => StsdBoxContent::Hev1(HevcBox::read_box(reader, s)?),
             BoxType::Vp08Box => StsdBoxContent::Vp08(Vp08Box::read_box(reader, s)?),
             BoxType::Vp09Box => StsdBoxContent::Vp09(Vp09Box::read_box(reader, s)?),
             BoxType::Mp4aBox => StsdBoxContent::Mp4a(Mp4aBox::read_box(reader, s)?),
