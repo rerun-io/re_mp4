@@ -139,7 +139,7 @@ pub use smhd::SmhdBox;
 pub use stbl::StblBox;
 pub use stco::StcoBox;
 pub use stsc::StscBox;
-pub use stsd::StsdBox;
+pub use stsd::{StsdBox, StsdBoxContent};
 pub use stss::StssBox;
 pub use stsz::StszBox;
 pub use stts::SttsBox;

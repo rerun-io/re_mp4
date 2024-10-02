@@ -5,8 +5,8 @@ use std::io::{Read, Seek};
 
 use crate::{
     skip_box, Av01Box, Avc1Box, BoxHeader, BoxType, EmsgBox, Error, FtypBox, Hvc1Box, MoofBox,
-    MoovBox, ReadBox, Result, StblBox, TfhdBox, TrackId, TrackKind, TrakBox, TrunBox, Vp08Box,
-    Vp09Box,
+    MoovBox, ReadBox, Result, StblBox, StsdBoxContent, TfhdBox, TrackId, TrackKind, TrakBox,
+    TrunBox, Vp08Box, Vp09Box,
 };
 
 #[derive(Debug)]
@@ -472,97 +472,103 @@ impl Track {
     pub fn raw_codec_config(&self, mp4: &Mp4) -> Option<Vec<u8>> {
         let sample_description = &self.trak(mp4).mdia.minf.stbl.stsd;
 
-        if let Some(Av01Box { av1c, .. }) = &sample_description.av01 {
-            Some(av1c.raw.clone())
-        } else if let Some(Avc1Box { avcc, .. }) = &sample_description.avc1 {
-            Some(avcc.raw.clone())
-        } else if let Some(Hvc1Box { hvcc, .. }) = &sample_description.hvc1 {
-            Some(hvcc.raw.clone())
-        } else if let Some(Vp08Box { vpcc, .. }) = &sample_description.vp08 {
-            Some(vpcc.raw.clone())
-        } else if let Some(Vp09Box { vpcc, .. }) = &sample_description.vp09 {
-            Some(vpcc.raw.clone())
-        } else {
-            None
+        match &sample_description.contents {
+            StsdBoxContent::Av01(content) => Some(content.av1c.raw.clone()),
+            StsdBoxContent::Avc1(content) => Some(content.avcc.raw.clone()),
+            StsdBoxContent::Hvc1(content) => Some(content.hvcc.raw.clone()),
+            StsdBoxContent::Vp08(content) => Some(content.vpcc.raw.clone()),
+            StsdBoxContent::Vp09(content) => Some(content.vpcc.raw.clone()),
+            StsdBoxContent::Mp4a(_) | StsdBoxContent::Tx3g(_) | StsdBoxContent::Unknown(_) => None,
         }
     }
 
     pub fn codec_string(&self, mp4: &Mp4) -> Option<String> {
         let sample_description = &self.trak(mp4).mdia.minf.stbl.stsd;
 
-        let s = if let Some(Av01Box { av1c, .. }) = &sample_description.av01 {
-            let profile = av1c.profile;
-            let level = av1c.level;
-            let tier = if av1c.tier == 0 { "M" } else { "H" };
-            let bit_depth = av1c.bit_depth;
+        Some(match &sample_description.contents {
+            StsdBoxContent::Av01(Av01Box { av1c, .. }) => {
+                let profile = av1c.profile;
+                let level = av1c.level;
+                let tier = if av1c.tier == 0 { "M" } else { "H" };
+                let bit_depth = av1c.bit_depth;
 
-            format!("av01.{profile}.{level:02}{tier}.{bit_depth:02}")
-        } else if let Some(Avc1Box { avcc, .. }) = &sample_description.avc1 {
-            let profile = avcc.avc_profile_indication;
-            let constraint = avcc.profile_compatibility;
-            let level = avcc.avc_level_indication;
-
-            format!("avc1.{profile:02X}{constraint:02X}{level:02X}")
-        } else if let Some(Hvc1Box { hvcc, .. }) = &sample_description.hvc1 {
-            let mut codec = "hvc1".to_owned();
-            match hvcc.general_profile_space {
-                1 => codec.push_str(".A"),
-                2 => codec.push_str(".B"),
-                3 => codec.push_str(".C"),
-                _ => {}
+                format!("av01.{profile}.{level:02}{tier}.{bit_depth:02}")
             }
-            write!(&mut codec, ".{}", hvcc.general_profile_idc).ok();
 
-            let mut val = hvcc.general_profile_compatibility_flags;
-            let mut reversed = 0;
-            for i in 0..32 {
-                reversed |= val & 1;
-                if i == 31 {
-                    break;
+            StsdBoxContent::Avc1(Avc1Box { avcc, .. }) => {
+                let profile = avcc.avc_profile_indication;
+                let constraint = avcc.profile_compatibility;
+                let level = avcc.avc_level_indication;
+
+                format!("avc1.{profile:02X}{constraint:02X}{level:02X}")
+            }
+
+            StsdBoxContent::Hvc1(Hvc1Box { hvcc, .. }) => {
+                let mut codec = "hvc1".to_owned();
+                match hvcc.general_profile_space {
+                    1 => codec.push_str(".A"),
+                    2 => codec.push_str(".B"),
+                    3 => codec.push_str(".C"),
+                    _ => {}
                 }
-                reversed <<= 1;
-                val >>= 1;
-            }
-            write!(&mut codec, ".{reversed:X}").ok();
+                write!(&mut codec, ".{}", hvcc.general_profile_idc).ok();
 
-            if hvcc.general_tier_flag {
-                codec.push_str(".H");
-            } else {
-                codec.push_str(".L");
-            }
-            write!(&mut codec, "{}", hvcc.general_level_idc).ok();
-
-            let mut constraint = [0u8; 6];
-            constraint.copy_from_slice(&hvcc.general_constraint_indicator_flag.to_be_bytes()[2..]);
-            let mut has_byte = false;
-            let mut i = 5isize;
-            while i >= 0 {
-                let v = constraint[i as usize];
-                if v > 0 || has_byte {
-                    write!(&mut codec, ".{v:00X}").ok();
-                    has_byte = true;
+                let mut val = hvcc.general_profile_compatibility_flags;
+                let mut reversed = 0;
+                for i in 0..32 {
+                    reversed |= val & 1;
+                    if i == 31 {
+                        break;
+                    }
+                    reversed <<= 1;
+                    val >>= 1;
                 }
-                i -= 1;
+                write!(&mut codec, ".{reversed:X}").ok();
+
+                if hvcc.general_tier_flag {
+                    codec.push_str(".H");
+                } else {
+                    codec.push_str(".L");
+                }
+                write!(&mut codec, "{}", hvcc.general_level_idc).ok();
+
+                let mut constraint = [0u8; 6];
+                constraint
+                    .copy_from_slice(&hvcc.general_constraint_indicator_flag.to_be_bytes()[2..]);
+                let mut has_byte = false;
+                let mut i = 5isize;
+                while i >= 0 {
+                    let v = constraint[i as usize];
+                    if v > 0 || has_byte {
+                        write!(&mut codec, ".{v:00X}").ok();
+                        has_byte = true;
+                    }
+                    i -= 1;
+                }
+
+                codec
             }
 
-            codec
-        } else if let Some(Vp08Box { vpcc, .. }) = &sample_description.vp08 {
-            let profile = vpcc.profile;
-            let level = vpcc.level;
-            let bit_depth = vpcc.bit_depth;
+            StsdBoxContent::Vp08(Vp08Box { vpcc, .. }) => {
+                let profile = vpcc.profile;
+                let level = vpcc.level;
+                let bit_depth = vpcc.bit_depth;
 
-            format!("vp08.{profile:02}.{level:02}.{bit_depth:02}")
-        } else if let Some(Vp09Box { vpcc, .. }) = &sample_description.vp09 {
-            let profile = vpcc.profile;
-            let level = vpcc.level;
-            let bit_depth = vpcc.bit_depth;
+                format!("vp08.{profile:02}.{level:02}.{bit_depth:02}")
+            }
 
-            format!("vp09.{profile:02}.{level:02}.{bit_depth:02}")
-        } else {
-            return None;
-        };
+            StsdBoxContent::Vp09(Vp09Box { vpcc, .. }) => {
+                let profile = vpcc.profile;
+                let level = vpcc.level;
+                let bit_depth = vpcc.bit_depth;
 
-        Some(s)
+                format!("vp09.{profile:02}.{level:02}.{bit_depth:02}")
+            }
+
+            StsdBoxContent::Mp4a(_) | StsdBoxContent::Tx3g(_) | StsdBoxContent::Unknown(_) => {
+                return None
+            }
+        })
     }
 }
 
