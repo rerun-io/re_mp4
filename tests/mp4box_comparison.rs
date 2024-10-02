@@ -50,7 +50,7 @@ fn compare_video_snapshot_with_mp4box_output(video_path: &Path) {
         "Failed to run mp4box."
     );
 
-    let video = re_mp4::read_file(base_path.join(video_path)).unwrap();
+    let video = re_mp4::Mp4::read_file(base_path.join(video_path)).unwrap();
 
     for (id, track) in video.tracks() {
         if track.kind == Some(re_mp4::TrackKind::Video) {

@@ -19,6 +19,18 @@ pub struct Mp4 {
 }
 
 impl Mp4 {
+    /// Parses the contents of a byte slice as MP4 data.
+    pub fn read_bytes(bytes: &[u8]) -> Result<Self> {
+        let mp4 = Self::read(std::io::Cursor::new(bytes), bytes.len() as u64)?;
+        Ok(mp4)
+    }
+
+    /// Reads the contents of a file as MP4 data.
+    pub fn read_file(file_path: impl AsRef<std::path::Path>) -> Result<Self> {
+        let bytes = std::fs::read(file_path)?;
+        Self::read_bytes(&bytes)
+    }
+
     pub fn read<R: Read + Seek>(mut reader: R, size: u64) -> Result<Self> {
         let start = reader.stream_position()?;
 
