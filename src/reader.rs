@@ -536,7 +536,7 @@ impl Track {
     }
 }
 
-fn hevc_codec_details(hvcc: &crate::hvc1::HevcDecoderConfigurationRecord) -> String {
+fn hevc_codec_details(hvcc: &crate::hevc::HevcDecoderConfigurationRecord) -> String {
     let mut codec = String::new();
     match hvcc.general_profile_space {
         1 => codec.push_str(".A"),
