@@ -24,7 +24,14 @@ pub use reader::{Mp4, Sample, Track};
 
 pub use types::{TrackId, TrackKind};
 
+/// Parses the contents of a byte slice as MP4 data.
 pub fn read(bytes: &[u8]) -> Result<Mp4> {
     let mp4 = reader::Mp4::read(Cursor::new(bytes), bytes.len() as u64)?;
     Ok(mp4)
+}
+
+/// Reads the contents of a file as MP4 data.
+pub fn read_file(file_path: impl AsRef<std::path::Path>) -> Result<Mp4> {
+    let bytes = std::fs::read(file_path)?;
+    read(&bytes)
 }

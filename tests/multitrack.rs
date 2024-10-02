@@ -5,8 +5,7 @@ fn multitrack_video_with_subtitles_and_sound() {
     let mp4_with_subtitles_and_sound = std::path::Path::new(paths::SAMPLE_BASE_PATH)
         .join("rerun404_avc_with_subtitles_and_sound.mp4");
 
-    let bytes = std::fs::read(mp4_with_subtitles_and_sound).unwrap();
-    let video = re_mp4::read(&bytes).unwrap();
+    let video = re_mp4::read_file(mp4_with_subtitles_and_sound).unwrap();
 
     assert_eq!(video.tracks().len(), 3);
     assert_eq!(video.moov.mvhd.next_track_id, 4);
