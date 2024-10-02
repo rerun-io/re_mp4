@@ -6,8 +6,6 @@
 //!    * ISO/IEC 14496-17 - Streaming text format
 //!
 
-use std::io::Cursor;
-
 mod error;
 pub use error::Error;
 
@@ -23,8 +21,3 @@ mod reader;
 pub use reader::{Mp4, Sample, Track};
 
 pub use types::{TrackId, TrackKind};
-
-pub fn read(bytes: &[u8]) -> Result<Mp4> {
-    let mp4 = reader::Mp4::read(Cursor::new(bytes), bytes.len() as u64)?;
-    Ok(mp4)
-}

@@ -76,7 +76,7 @@ pub(crate) mod elst;
 pub(crate) mod emsg;
 pub(crate) mod ftyp;
 pub(crate) mod hdlr;
-pub(crate) mod hvc1;
+pub(crate) mod hevc;
 pub(crate) mod ilst;
 pub(crate) mod mdhd;
 pub(crate) mod mdia;
@@ -122,7 +122,7 @@ pub use elst::ElstBox;
 pub use emsg::EmsgBox;
 pub use ftyp::FtypBox;
 pub use hdlr::HdlrBox;
-pub use hvc1::Hvc1Box;
+pub use hevc::HevcBox;
 pub use ilst::IlstBox;
 pub use mdhd::MdhdBox;
 pub use mdia::MdiaBox;
@@ -139,7 +139,7 @@ pub use smhd::SmhdBox;
 pub use stbl::StblBox;
 pub use stco::StcoBox;
 pub use stsc::StscBox;
-pub use stsd::StsdBox;
+pub use stsd::{StsdBox, StsdBoxContent};
 pub use stss::StssBox;
 pub use stsz::StszBox;
 pub use stts::SttsBox;
@@ -234,7 +234,7 @@ boxtype! {
     AvcCBox => 0x61766343,
     Av01Box => 0x61763031,
     Av1CBox => 0x61763143,
-    // Hev1Box => 0x68657631,
+    Hev1Box => 0x68657631,
     Hvc1Box => 0x68766331,
     HvcCBox => 0x68766343,
     Mp4aBox => 0x6d703461,

@@ -30,20 +30,6 @@ fn assert_snapshot(snapshot_path: &Path, contents: &[u8]) {
     }
 }
 
-fn get_track_description(track: &re_mp4::TrakBox) -> Vec<u8> {
-    if let Some(ref av01) = track.mdia.minf.stbl.stsd.av01 {
-        av01.av1c.raw.clone()
-    } else if let Some(ref avc1) = track.mdia.minf.stbl.stsd.avc1 {
-        avc1.avcc.raw.clone()
-    } else if let Some(ref hvc1) = track.mdia.minf.stbl.stsd.hvc1 {
-        hvc1.hvcc.raw.clone()
-    } else if let Some(ref vp09) = track.mdia.minf.stbl.stsd.vp09 {
-        vp09.vpcc.raw.clone()
-    } else {
-        Vec::new()
-    }
-}
-
 fn compare_video_snapshot_with_mp4box_output(video_path: &Path) {
     let video_path_str = video_path.to_str().unwrap();
     let base_path = video_path.parent().unwrap();
@@ -64,8 +50,7 @@ fn compare_video_snapshot_with_mp4box_output(video_path: &Path) {
         "Failed to run mp4box."
     );
 
-    let bytes = std::fs::read(base_path.join(video_path)).unwrap();
-    let video = re_mp4::read(&bytes).unwrap();
+    let video = re_mp4::Mp4::read_file(base_path.join(video_path)).unwrap();
 
     for (id, track) in video.tracks() {
         if track.kind == Some(re_mp4::TrackKind::Video) {
@@ -85,7 +70,7 @@ fn compare_video_snapshot_with_mp4box_output(video_path: &Path) {
                     track.width,
                     track.height,
                     track.samples.len(),
-                    get_track_description(track.trak(&video)),
+                    track.raw_codec_config(&video),
                 )
                 .as_bytes(),
             );
