@@ -9,8 +9,6 @@ use crate::mp4box::{
 };
 
 /// Codec dependent contents of the stsd box.
-///
-/// <https://developer.apple.com/documentation/quicktime-file-format/sample_description_atom>
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub enum StsdBoxContent {
     /// AV1 video codec
@@ -173,8 +171,6 @@ fn hevc_codec_details(hvcc: &crate::hevc::HevcDecoderConfigurationRecord) -> Str
 }
 
 /// Information about the video codec.
-///
-/// <https://developer.apple.com/documentation/quicktime-file-format/sample_description_atom>
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Default)]
 pub struct StsdBox {
     pub version: u8,
