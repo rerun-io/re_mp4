@@ -54,6 +54,26 @@ impl Default for StsdBoxContent {
 }
 
 impl StsdBoxContent {
+    /// Usually 8, but 10 for HDR (for example).
+    pub fn bit_depth(&self) -> Option<u8> {
+        #[allow(clippy::match_same_arms)]
+        match self {
+            Self::Av01(bx) => Some(bx.av1c.bit_depth),
+
+            Self::Avc1(_) => None, // TODO(emilk): figure out bit depth
+
+            Self::Hvc1(_) => None, // TODO(emilk): figure out bit depth
+
+            Self::Hev1(_) => None, // TODO(emilk): figure out bit depth
+
+            Self::Vp08(bx) => Some(bx.vpcc.bit_depth),
+
+            Self::Vp09(bx) => Some(bx.vpcc.bit_depth),
+
+            Self::Mp4a(_) | Self::Tx3g(_) | Self::Unknown(_) => None, // Not applicable
+        }
+    }
+
     pub fn codec_string(&self) -> Option<String> {
         Some(match self {
             Self::Av01(Av01Box { av1c, .. }) => {

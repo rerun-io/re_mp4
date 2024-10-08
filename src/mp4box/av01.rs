@@ -19,7 +19,7 @@ pub struct Av01Box {
     #[serde(with = "value_u32")]
     pub vertresolution: FixedPointU16,
     pub frame_count: u16,
-    pub depth: u16,
+    pub depth: u16, // I don't know what this is, but it is usually 24
     pub av1c: RawBox<Av1CBox>,
 }
 
