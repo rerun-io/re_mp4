@@ -92,6 +92,7 @@ impl StsdBoxContent {
                 let constraint = avcc.profile_compatibility;
                 let level = avcc.avc_level_indication;
 
+                // https://aomediacodec.github.io/av1-isobmff/#codecsparam
                 format!("avc1.{profile:02X}{constraint:02X}{level:02X}")
             }
 
