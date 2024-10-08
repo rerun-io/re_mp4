@@ -54,6 +54,8 @@ impl Default for StsdBoxContent {
 }
 
 impl StsdBoxContent {
+    /// Per color component bit depth.
+    ///
     /// Usually 8, but 10 for HDR (for example).
     pub fn bit_depth(&self) -> Option<u8> {
         #[allow(clippy::match_same_arms)]
