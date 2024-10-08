@@ -1,12 +1,10 @@
 use std::collections::BTreeMap;
-use std::fmt::Write as _;
 use std::io::SeekFrom;
 use std::io::{Read, Seek};
 
 use crate::{
-    skip_box, Av01Box, Avc1Box, BoxHeader, BoxType, EmsgBox, Error, FtypBox, HevcBox, MoofBox,
-    MoovBox, ReadBox, Result, StblBox, StsdBoxContent, TfhdBox, TrackId, TrackKind, TrakBox,
-    TrunBox, Vp08Box, Vp09Box,
+    skip_box, BoxHeader, BoxType, EmsgBox, Error, FtypBox, MoofBox, MoovBox, ReadBox, Result,
+    StblBox, StsdBoxContent, TfhdBox, TrackId, TrackKind, TrakBox, TrunBox,
 };
 
 #[derive(Debug)]
@@ -497,100 +495,8 @@ impl Track {
     }
 
     pub fn codec_string(&self, mp4: &Mp4) -> Option<String> {
-        let sample_description = &self.trak(mp4).mdia.minf.stbl.stsd;
-
-        Some(match &sample_description.contents {
-            StsdBoxContent::Av01(Av01Box { av1c, .. }) => {
-                let profile = av1c.profile;
-                let level = av1c.level;
-                let tier = if av1c.tier == 0 { "M" } else { "H" };
-                let bit_depth = av1c.bit_depth;
-
-                format!("av01.{profile}.{level:02}{tier}.{bit_depth:02}")
-            }
-
-            StsdBoxContent::Avc1(Avc1Box { avcc, .. }) => {
-                let profile = avcc.avc_profile_indication;
-                let constraint = avcc.profile_compatibility;
-                let level = avcc.avc_level_indication;
-
-                format!("avc1.{profile:02X}{constraint:02X}{level:02X}")
-            }
-
-            StsdBoxContent::Hvc1(HevcBox { hvcc, .. }) => {
-                format!("hvc1{}", hevc_codec_details(hvcc))
-            }
-
-            StsdBoxContent::Hev1(HevcBox { hvcc, .. }) => {
-                format!("hev1{}", hevc_codec_details(hvcc))
-            }
-
-            StsdBoxContent::Vp08(Vp08Box { vpcc, .. }) => {
-                let profile = vpcc.profile;
-                let level = vpcc.level;
-                let bit_depth = vpcc.bit_depth;
-
-                format!("vp08.{profile:02}.{level:02}.{bit_depth:02}")
-            }
-
-            StsdBoxContent::Vp09(Vp09Box { vpcc, .. }) => {
-                let profile = vpcc.profile;
-                let level = vpcc.level;
-                let bit_depth = vpcc.bit_depth;
-
-                format!("vp09.{profile:02}.{level:02}.{bit_depth:02}")
-            }
-
-            StsdBoxContent::Mp4a(_) | StsdBoxContent::Tx3g(_) | StsdBoxContent::Unknown(_) => {
-                return None
-            }
-        })
+        self.trak(mp4).mdia.minf.stbl.stsd.contents.codec_string()
     }
-}
-
-fn hevc_codec_details(hvcc: &crate::hevc::HevcDecoderConfigurationRecord) -> String {
-    let mut codec = String::new();
-    match hvcc.general_profile_space {
-        1 => codec.push_str(".A"),
-        2 => codec.push_str(".B"),
-        3 => codec.push_str(".C"),
-        _ => {}
-    }
-    write!(&mut codec, ".{}", hvcc.general_profile_idc).ok();
-
-    let mut val = hvcc.general_profile_compatibility_flags;
-    let mut reversed = 0;
-    for i in 0..32 {
-        reversed |= val & 1;
-        if i == 31 {
-            break;
-        }
-        reversed <<= 1;
-        val >>= 1;
-    }
-    write!(&mut codec, ".{reversed:X}").ok();
-
-    if hvcc.general_tier_flag {
-        codec.push_str(".H");
-    } else {
-        codec.push_str(".L");
-    }
-    write!(&mut codec, "{}", hvcc.general_level_idc).ok();
-
-    let mut constraint = [0u8; 6];
-    constraint.copy_from_slice(&hvcc.general_constraint_indicator_flag.to_be_bytes()[2..]);
-    let mut has_byte = false;
-    let mut i = 5isize;
-    while i >= 0 {
-        let v = constraint[i as usize];
-        if v > 0 || has_byte {
-            write!(&mut codec, ".{v:00X}").ok();
-            has_byte = true;
-        }
-        i -= 1;
-    }
-
-    codec
 }
 
 #[derive(Default, Clone, Copy)]

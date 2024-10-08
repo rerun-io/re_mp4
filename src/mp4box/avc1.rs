@@ -19,7 +19,7 @@ pub struct Avc1Box {
     #[serde(with = "value_u32")]
     pub vertresolution: FixedPointU16,
     pub frame_count: u16,
-    pub depth: u16,
+    pub depth: u16, // This is usually 24, even for HDR with bit_depth=10
     pub avcc: RawBox<AvcCBox>,
 }
 

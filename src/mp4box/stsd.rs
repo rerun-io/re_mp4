@@ -51,6 +51,126 @@ impl Default for StsdBoxContent {
     }
 }
 
+impl StsdBoxContent {
+    /// Per color component bit depth.
+    ///
+    /// Usually 8, but 10 for HDR (for example).
+    pub fn bit_depth(&self) -> Option<u8> {
+        #[allow(clippy::match_same_arms)]
+        match self {
+            Self::Av01(bx) => Some(bx.av1c.bit_depth),
+
+            Self::Avc1(_) => None, // TODO(emilk): figure out bit depth
+
+            Self::Hvc1(_) => None, // TODO(emilk): figure out bit depth
+
+            Self::Hev1(_) => None, // TODO(emilk): figure out bit depth
+
+            Self::Vp08(bx) => Some(bx.vpcc.bit_depth),
+
+            Self::Vp09(bx) => Some(bx.vpcc.bit_depth),
+
+            Self::Mp4a(_) | Self::Tx3g(_) | Self::Unknown(_) => None, // Not applicable
+        }
+    }
+
+    pub fn codec_string(&self) -> Option<String> {
+        Some(match self {
+            Self::Av01(Av01Box { av1c, .. }) => {
+                let profile = av1c.profile;
+                let level = av1c.level;
+                let tier = if av1c.tier == 0 { "M" } else { "H" };
+                let bit_depth = av1c.bit_depth;
+
+                format!("av01.{profile}.{level:02}{tier}.{bit_depth:02}")
+            }
+
+            Self::Avc1(Avc1Box { avcc, .. }) => {
+                let profile = avcc.avc_profile_indication;
+                let constraint = avcc.profile_compatibility;
+                let level = avcc.avc_level_indication;
+
+                // https://aomediacodec.github.io/av1-isobmff/#codecsparam
+                format!("avc1.{profile:02X}{constraint:02X}{level:02X}")
+            }
+
+            Self::Hvc1(HevcBox { hvcc, .. }) => {
+                format!("hvc1{}", hevc_codec_details(hvcc))
+            }
+
+            Self::Hev1(HevcBox { hvcc, .. }) => {
+                format!("hev1{}", hevc_codec_details(hvcc))
+            }
+
+            Self::Vp08(Vp08Box { vpcc, .. }) => {
+                let profile = vpcc.profile;
+                let level = vpcc.level;
+                let bit_depth = vpcc.bit_depth;
+
+                format!("vp08.{profile:02}.{level:02}.{bit_depth:02}")
+            }
+
+            Self::Vp09(Vp09Box { vpcc, .. }) => {
+                let profile = vpcc.profile;
+                let level = vpcc.level;
+                let bit_depth = vpcc.bit_depth;
+
+                format!("vp09.{profile:02}.{level:02}.{bit_depth:02}")
+            }
+
+            Self::Mp4a(_) | Self::Tx3g(_) | Self::Unknown(_) => return None,
+        })
+    }
+}
+
+fn hevc_codec_details(hvcc: &crate::hevc::HevcDecoderConfigurationRecord) -> String {
+    use std::fmt::Write as _;
+
+    let mut codec = String::new();
+    match hvcc.general_profile_space {
+        1 => codec.push_str(".A"),
+        2 => codec.push_str(".B"),
+        3 => codec.push_str(".C"),
+        _ => {}
+    }
+    write!(&mut codec, ".{}", hvcc.general_profile_idc).ok();
+
+    let mut val = hvcc.general_profile_compatibility_flags;
+    let mut reversed = 0;
+    for i in 0..32 {
+        reversed |= val & 1;
+        if i == 31 {
+            break;
+        }
+        reversed <<= 1;
+        val >>= 1;
+    }
+    write!(&mut codec, ".{reversed:X}").ok();
+
+    if hvcc.general_tier_flag {
+        codec.push_str(".H");
+    } else {
+        codec.push_str(".L");
+    }
+    write!(&mut codec, "{}", hvcc.general_level_idc).ok();
+
+    let mut constraint = [0u8; 6];
+    constraint.copy_from_slice(&hvcc.general_constraint_indicator_flag.to_be_bytes()[2..]);
+    let mut has_byte = false;
+    let mut i = 5isize;
+    while 0 <= i {
+        let v = constraint[i as usize];
+        if v > 0 || has_byte {
+            write!(&mut codec, ".{v:00X}").ok();
+            has_byte = true;
+        }
+        i -= 1;
+    }
+
+    codec
+}
+
+/// Information about the video codec.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Default)]
 pub struct StsdBox {
     pub version: u8,
