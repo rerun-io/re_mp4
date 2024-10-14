@@ -1,6 +1,6 @@
 [package]
 authors = ["rerun.io <opensource@rerun.io>"]
-categories = ["Multimedia", "Video"]
+categories = ["multimedia::video"]
 description = "MP4 parser"
 edition = "2021"
 homepage = "https://github.com/rerun-io/re_mp4"
