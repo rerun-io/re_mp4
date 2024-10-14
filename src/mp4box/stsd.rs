@@ -77,12 +77,25 @@ impl StsdBoxContent {
     pub fn codec_string(&self) -> Option<String> {
         Some(match self {
             Self::Av01(Av01Box { av1c, .. }) => {
+                // See https://aomediacodec.github.io/av1-isobmff/#codecsparam
                 let profile = av1c.profile;
                 let level = av1c.level;
                 let tier = if av1c.tier == 0 { "M" } else { "H" };
                 let bit_depth = av1c.bit_depth;
+                let monochrome = if av1c.monochrome { 1 } else { 0 };
+                let chroma_subsampling_x = av1c.chroma_subsampling_x;
+                let chroma_subsampling_y = av1c.chroma_subsampling_y;
+                let chroma_third_digit = if chroma_subsampling_x == 1 && chroma_subsampling_y == 1 {
+                    av1c.chroma_sample_position
+                } else {
+                    0
+                };
 
-                format!("av01.{profile}.{level:02}{tier}.{bit_depth:02}")
+                // TODO(andreas): Leaving out colorPrimaries/transferCharacteristics/matrixCoefficients/videoFullRangeFlag
+                // We're not parsing this yet, would need to read out the OBU bytes for this.
+                // See https://aomediacodec.github.io/av1-spec/av1-spec.pdf#page=41
+
+                format!("av01.{profile}.{level:02}{tier}.{bit_depth:02}.{monochrome}.{chroma_subsampling_x}{chroma_subsampling_y}{chroma_third_digit}")
             }
 
             Self::Avc1(Avc1Box { avcc, .. }) => {
@@ -90,7 +103,6 @@ impl StsdBoxContent {
                 let constraint = avcc.profile_compatibility;
                 let level = avcc.avc_level_indication;
 
-                // https://aomediacodec.github.io/av1-isobmff/#codecsparam
                 format!("avc1.{profile:02X}{constraint:02X}{level:02X}")
             }
 
