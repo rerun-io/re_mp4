@@ -276,6 +276,7 @@ impl BoxHeader {
     }
 
     // TODO: if size is 0, then this box is the last one in the file
+    #[profiling::function]
     pub fn read<R: Read>(reader: &mut R) -> Result<Self> {
         // Create and read to buf.
         let mut buf = [0u8; 8]; // 8 bytes for box header.

@@ -116,6 +116,7 @@ impl Mp4 {
     /// Process each `trak` box to obtain a list of samples for each track.
     ///
     /// Note that the list will be incomplete if the file is fragmented.
+    #[profiling::function]
     fn build_tracks(&mut self) -> BTreeMap<TrackId, Track> {
         let mut tracks = BTreeMap::new();
 
@@ -272,6 +273,7 @@ impl Mp4 {
 
     /// In case the input file is fragmented, it will contain one or more `moof` boxes,
     /// which must be processed to obtain the full list of samples for each track.
+    #[profiling::function]
     fn update_sample_list(&mut self, tracks: &mut BTreeMap<TrackId, Track>) -> Result<()> {
         let mut last_run_position = 0;
 
@@ -412,17 +414,21 @@ impl Mp4 {
     /// This also updates sample offsets and the track duration if needed.
     ///
     /// After this function is called, each track's [`Track::data`] may only be indexed by one of its samples' [`Sample::offset`]s.
+    #[profiling::function]
     fn load_track_data<R: Read + Seek>(&mut self, reader: &mut R) -> Result<()> {
         for track in self.tracks.values_mut() {
+            profiling::scope!("track");
             for sample in &mut track.samples {
                 let data_offset = track.data.len();
 
+                // Allocating memory for each sample is what takes up most time in this function.
                 track
                     .data
                     .resize(track.data.len() + sample.size as usize, 0);
 
                 // at this point, `sample.offset` is the offset of the first byte of the sample in the file
                 reader.seek(SeekFrom::Start(sample.offset))?;
+
                 reader
                     .read_exact(&mut track.data[data_offset..data_offset + sample.size as usize])?;
 
