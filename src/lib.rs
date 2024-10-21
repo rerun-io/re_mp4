@@ -5,6 +5,7 @@
 //!    * ISO/IEC 14496-14 - MP4 file format
 //!    * ISO/IEC 14496-17 - Streaming text format
 //!
+//! The top-level type you wanna look at is [`Mp4`].
 
 mod error;
 pub use error::Error;
