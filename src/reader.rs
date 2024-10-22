@@ -424,15 +424,25 @@ impl Mp4 {
 }
 
 pub struct Track {
+    /// Internal field used when decoding a fragmented MP4 file.
     first_traf_merged: bool,
 
     pub width: u16,
     pub height: u16,
 
     pub track_id: u32,
+
+    /// Timescale of the sample.
+    ///
+    /// One time unit is equal to `1.0 / timescale` seconds.
     pub timescale: u64,
+
+    /// Duration of the track in time units.
     pub duration: u64,
+
     pub kind: Option<TrackKind>,
+
+    /// List of samples in the track.
     pub samples: Vec<Sample>,
 }
 
@@ -475,7 +485,11 @@ impl Track {
 
 #[derive(Default, Clone, Copy)]
 pub struct Sample {
+    /// Sample number.
     pub id: u32,
+
+    /// Whether or not an entire frame can be decoded from this one sample,
+    /// or if it needs the context of other samples.
     pub is_sync: bool,
 
     /// Size of the sample in bytes.
@@ -484,9 +498,20 @@ pub struct Sample {
     /// Offset of the sample in bytes from the start of the MP4 file.
     pub offset: u64,
 
+    /// Timescale of the sample.
+    ///
+    /// One time unit is equal to `1.0 / timescale` seconds.
     pub timescale: u64,
+
+    /// Timestamp of the sample at which it should be decoded,
+    /// in time units.
     pub decode_timestamp: u64,
+
+    /// Timestamp of the sample at which the sample should be displayed,
+    /// in time units.
     pub composition_timestamp: u64,
+
+    /// Duration of the sample in time units.
     pub duration: u64,
 }
 
