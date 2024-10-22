@@ -17,12 +17,16 @@ pub struct Mp4 {
 
 impl Mp4 {
     /// Parses the contents of a byte slice as MP4 data.
+    ///
+    /// Sample ranges returned by the resulting [`Mp4`] should be used with the same input buffer.
     pub fn read_bytes(bytes: &[u8]) -> Result<Self> {
         let mp4 = Self::read(std::io::Cursor::new(bytes), bytes.len() as u64)?;
         Ok(mp4)
     }
 
-    /// Reads the contents of a file as MP4 data.
+    /// Reads the contents of a file as MP4 data, and returns both the parsed MP4 and its raw data.
+    ///
+    /// Sample ranges returned by the resulting [`Mp4`] should be used with the same input buffer.
     pub fn read_file(file_path: impl AsRef<std::path::Path>) -> Result<(Self, Vec<u8>)> {
         let bytes = std::fs::read(file_path)?;
         Ok((Self::read_bytes(&bytes)?, bytes))
@@ -473,8 +477,13 @@ impl Track {
 pub struct Sample {
     pub id: u32,
     pub is_sync: bool,
+
+    /// Size of the sample in bytes.
     pub size: u64,
+
+    /// Offset of the sample in bytes from the start of the MP4 file.
     pub offset: u64,
+
     pub timescale: u64,
     pub decode_timestamp: u64,
     pub composition_timestamp: u64,
@@ -482,7 +491,8 @@ pub struct Sample {
 }
 
 impl Sample {
-    pub fn range(&self) -> std::ops::Range<usize> {
+    /// Returns the range of bytes in the input data that this sample covers.
+    pub fn byte_range(&self) -> std::ops::Range<usize> {
         self.offset as usize..(self.offset + self.size) as usize
     }
 }
