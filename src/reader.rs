@@ -1,5 +1,4 @@
 use std::collections::BTreeMap;
-use std::io::SeekFrom;
 use std::io::{Read, Seek};
 
 use crate::{
@@ -18,15 +17,19 @@ pub struct Mp4 {
 
 impl Mp4 {
     /// Parses the contents of a byte slice as MP4 data.
+    ///
+    /// Sample ranges returned by the resulting [`Mp4`] should be used with the same input buffer.
     pub fn read_bytes(bytes: &[u8]) -> Result<Self> {
         let mp4 = Self::read(std::io::Cursor::new(bytes), bytes.len() as u64)?;
         Ok(mp4)
     }
 
-    /// Reads the contents of a file as MP4 data.
-    pub fn read_file(file_path: impl AsRef<std::path::Path>) -> Result<Self> {
+    /// Reads the contents of a file as MP4 data, and returns both the parsed MP4 and its raw data.
+    ///
+    /// Sample ranges returned by the resulting [`Mp4`] should be used with the same input buffer.
+    pub fn read_file(file_path: impl AsRef<std::path::Path>) -> Result<(Self, Vec<u8>)> {
         let bytes = std::fs::read(file_path)?;
-        Self::read_bytes(&bytes)
+        Ok((Self::read_bytes(&bytes)?, bytes))
     }
 
     pub fn read<R: Read + Seek>(mut reader: R, size: u64) -> Result<Self> {
@@ -104,7 +107,7 @@ impl Mp4 {
         let mut tracks = this.build_tracks();
         this.update_sample_list(&mut tracks)?;
         this.tracks = tracks;
-        this.load_track_data(&mut reader)?;
+        this.update_tracks();
 
         Ok(this)
     }
@@ -262,7 +265,6 @@ impl Mp4 {
                     duration: trak.mdia.mdhd.duration,
                     kind: trak.mdia.minf.stbl.stsd.kind(),
                     samples,
-                    data: Vec::new(),
                 },
             );
         }
@@ -407,29 +409,9 @@ impl Mp4 {
         Ok(())
     }
 
-    /// For every track, combine its samples into a single contiguous buffer.
-    ///
-    /// This also updates sample offsets and the track duration if needed.
-    ///
-    /// After this function is called, each track's [`Track::data`] may only be indexed by one of its samples' [`Sample::offset`]s.
-    fn load_track_data<R: Read + Seek>(&mut self, reader: &mut R) -> Result<()> {
+    /// Update track metadata after all samples have been read
+    fn update_tracks(&mut self) {
         for track in self.tracks.values_mut() {
-            for sample in &mut track.samples {
-                let data_offset = track.data.len();
-
-                track
-                    .data
-                    .resize(track.data.len() + sample.size as usize, 0);
-
-                // at this point, `sample.offset` is the offset of the first byte of the sample in the file
-                reader.seek(SeekFrom::Start(sample.offset))?;
-                reader
-                    .read_exact(&mut track.data[data_offset..data_offset + sample.size as usize])?;
-
-                // we want it to be the offset of the sample in the combined track data
-                sample.offset = data_offset as u64;
-            }
-
             if track.duration == 0 {
                 track.duration = track
                     .samples
@@ -438,23 +420,30 @@ impl Mp4 {
                     .unwrap_or_default();
             }
         }
-
-        Ok(())
     }
 }
 
 pub struct Track {
+    /// Internal field used when decoding a fragmented MP4 file.
     first_traf_merged: bool,
 
     pub width: u16,
     pub height: u16,
 
     pub track_id: u32,
+
+    /// Timescale of the sample.
+    ///
+    /// One time unit is equal to `1.0 / timescale` seconds.
     pub timescale: u64,
+
+    /// Duration of the track in time units.
     pub duration: u64,
+
     pub kind: Option<TrackKind>,
+
+    /// List of samples in the track.
     pub samples: Vec<Sample>,
-    pub data: Vec<u8>,
 }
 
 impl Track {
@@ -472,11 +461,6 @@ impl Track {
         };
 
         trak
-    }
-
-    pub fn read_sample(&self, sample_id: u32) -> &[u8] {
-        let sample = &self.samples[sample_id as usize];
-        &self.data[sample.offset as usize..(sample.offset + sample.size) as usize]
     }
 
     pub fn raw_codec_config(&self, mp4: &Mp4) -> Option<Vec<u8>> {
@@ -501,14 +485,41 @@ impl Track {
 
 #[derive(Default, Clone, Copy)]
 pub struct Sample {
+    /// Sample number.
     pub id: u32,
+
+    /// Whether or not an entire frame can be decoded from this one sample,
+    /// or if it needs the context of other samples.
     pub is_sync: bool,
+
+    /// Size of the sample in bytes.
     pub size: u64,
+
+    /// Offset of the sample in bytes from the start of the MP4 file.
     pub offset: u64,
+
+    /// Timescale of the sample.
+    ///
+    /// One time unit is equal to `1.0 / timescale` seconds.
     pub timescale: u64,
+
+    /// Timestamp of the sample at which it should be decoded,
+    /// in time units.
     pub decode_timestamp: u64,
+
+    /// Timestamp of the sample at which the sample should be displayed,
+    /// in time units.
     pub composition_timestamp: u64,
+
+    /// Duration of the sample in time units.
     pub duration: u64,
+}
+
+impl Sample {
+    /// Returns the range of bytes in the input data that this sample covers.
+    pub fn byte_range(&self) -> std::ops::Range<usize> {
+        self.offset as usize..(self.offset + self.size) as usize
+    }
 }
 
 impl std::fmt::Debug for Track {

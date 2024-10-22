@@ -8,7 +8,7 @@ fn test_codec_parsing(
     stsd_box_check: impl Fn(&StsdBox),
 ) {
     let mp4_file = std::path::Path::new(paths::SAMPLE_BASE_PATH).join(video_path);
-    let video = re_mp4::Mp4::read_file(mp4_file).expect("Failed parsing mp4");
+    let (video, _) = re_mp4::Mp4::read_file(mp4_file).expect("Failed parsing mp4");
 
     let track = video.tracks().get(&1);
     let track = track.expect("Expected a video track with id 1");

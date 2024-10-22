@@ -2,6 +2,9 @@
 
 mod paths;
 
+#[path = "common/mod.rs"]
+mod common;
+
 use std::path::Path;
 
 fn assert_snapshot(snapshot_path: &Path, contents: &[u8]) {
@@ -50,13 +53,13 @@ fn compare_video_snapshot_with_mp4box_output(video_path: &Path) {
         "Failed to run mp4box."
     );
 
-    let video = re_mp4::Mp4::read_file(base_path.join(video_path)).unwrap();
+    let (video, data) = re_mp4::Mp4::read_file(base_path.join(video_path)).unwrap();
 
     for (id, track) in video.tracks() {
         if track.kind == Some(re_mp4::TrackKind::Video) {
             assert_snapshot(
                 &base_path.join(format!("{video_path_str}.track_{id}.bin")),
-                &track.data,
+                &common::get_sample_data(&data, track),
             );
             assert_snapshot(
                 &base_path.join(format!("{video_path_str}.track_{id}.segments")),
