@@ -135,6 +135,7 @@ impl Mp4 {
             let mut last_stss_index = 0;
             let mut last_sample_in_ctts_run = -1i64;
             let mut ctts_run_index = -1i64;
+            let mut dts_shift = 0;
 
             let mut samples = Vec::<Sample>::new();
 
@@ -204,7 +205,7 @@ impl Mp4 {
                     samples[sample_n - 1].duration =
                         stts.entries[stts_run_index as usize].sample_delta as u64;
 
-                    samples[sample_n - 1].decode_timestamp + samples[sample_n - 1].duration
+                    samples[sample_n - 1].decode_timestamp + samples[sample_n - 1].duration as i64
                 } else {
                     0
                 };
@@ -219,9 +220,14 @@ impl Mp4 {
                             ctts.entries[ctts_run_index as usize].sample_count as i64;
                     }
 
-                    decode_timestamp.saturating_add_signed(
-                        ctts.entries[ctts_run_index as usize].sample_offset as i64,
-                    )
+                    // dts shift is determined by the smallest negative sample offset:
+                    // https://github.com/FFmpeg/FFmpeg/blob/455db6fe109cf905fe518ea2690495948937438f/libavformat/mov.c#L3671
+                    let offset = ctts.entries[ctts_run_index as usize].sample_offset as i64;
+                    if offset < 0 {
+                        dts_shift = dts_shift.max(-offset);
+                    }
+
+                    decode_timestamp + offset
                 } else {
                     decode_timestamp
                 };
@@ -253,7 +259,16 @@ impl Mp4 {
             }
 
             if let Some(last_sample) = samples.last_mut() {
-                last_sample.duration = trak.mdia.mdhd.duration - last_sample.decode_timestamp;
+                last_sample.duration =
+                    trak.mdia.mdhd.duration - last_sample.decode_timestamp as u64;
+            }
+
+            // Fixup all DTS by the dts shift if there's one.
+            // https://github.com/FFmpeg/FFmpeg/blob/455db6fe109cf905fe518ea2690495948937438f/libavformat/mov.c#L4271
+            if dts_shift > 0 {
+                for sample in &mut samples {
+                    sample.decode_timestamp -= dts_shift;
+                }
             }
 
             tracks.insert(
@@ -333,17 +348,17 @@ impl Mp4 {
                         let mut decode_timestamp = 0;
                         if track.first_traf_merged || sample_n > 0 {
                             let prev = &track.samples[track.samples.len() - 1];
-                            decode_timestamp = prev.decode_timestamp + prev.duration;
+                            decode_timestamp = prev.decode_timestamp + prev.duration as i64;
                         } else {
                             if let Some(tfdt) = &traf.tfdt {
-                                decode_timestamp = tfdt.base_media_decode_time;
+                                decode_timestamp = tfdt.base_media_decode_time as i64;
                             }
                             track.first_traf_merged = true;
                         }
 
                         let composition_timestamp = if trun.flags & TrunBox::FLAG_SAMPLE_CTS != 0 {
                             decode_timestamp
-                                + trun.sample_cts.get(sample_n).copied().unwrap_or(0) as u64
+                                + trun.sample_cts.get(sample_n).copied().unwrap_or(0) as i64
                         } else {
                             decode_timestamp
                         };
@@ -381,6 +396,7 @@ impl Mp4 {
                                 .copied()
                                 .unwrap_or(default_sample_size) as u64;
 
+                        // Sample offset in bytes. (Must be postive, otherwise this would be outside of the file.)
                         let sample_offset = if traf_idx == 0 && sample_n == 0 {
                             if data_offset_present {
                                 base_data_offset
@@ -419,7 +435,7 @@ impl Mp4 {
                 track.duration = track
                     .samples
                     .last()
-                    .map(|v| v.decode_timestamp + v.duration)
+                    .map(|v| v.duration.saturating_add_signed(v.composition_timestamp))
                     .unwrap_or_default();
             }
         }
@@ -508,11 +524,11 @@ pub struct Sample {
 
     /// Timestamp of the sample at which it should be decoded,
     /// in time units.
-    pub decode_timestamp: u64,
+    pub decode_timestamp: i64,
 
     /// Timestamp of the sample at which the sample should be displayed,
     /// in time units.
-    pub composition_timestamp: u64,
+    pub composition_timestamp: i64,
 
     /// Duration of the sample in time units.
     pub duration: u64,
