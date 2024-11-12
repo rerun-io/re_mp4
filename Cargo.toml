@@ -12,7 +12,7 @@ publish = true
 readme = "README.md"
 repository = "https://github.com/rerun-io/re_mp4"
 rust-version = "1.76"
-version = "0.2.0"
+version = "0.2.1"
 
 [package.metadata.docs.rs]
 all-features = true
