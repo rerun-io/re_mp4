@@ -383,7 +383,8 @@ impl Mp4 {
 
                         let sample_offset = if traf_idx == 0 && sample_n == 0 {
                             if data_offset_present {
-                                base_data_offset + trun.data_offset.unwrap_or(0) as u64
+                                base_data_offset
+                                    .saturating_add_signed(trun.data_offset.unwrap_or(0) as i64)
                             } else {
                                 base_data_offset
                             }
