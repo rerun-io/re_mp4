@@ -219,7 +219,9 @@ impl Mp4 {
                             ctts.entries[ctts_run_index as usize].sample_count as i64;
                     }
 
-                    decode_timestamp + ctts.entries[ctts_run_index as usize].sample_offset as u64
+                    decode_timestamp.saturating_add_signed(
+                        ctts.entries[ctts_run_index as usize].sample_offset as i64,
+                    )
                 } else {
                     decode_timestamp
                 };
