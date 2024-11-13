@@ -137,6 +137,17 @@ impl Mp4 {
             let mut ctts_run_index = -1i64;
             let mut dts_shift = 0;
 
+            // The smallest presentation timestamp observed in this stream.
+            //
+            // This is typically 0, but in the presence of sample reordering (caused by AVC/HVC b-frames), it may be non-zero.
+            // In fact, many formats don't require this to be zero, but video players typically
+            // normalize the shown time to start at zero.
+            // This is roughly equivalent to FFmpeg's internal `min_corrected_pts`
+            // https://github.com/FFmpeg/FFmpeg/blob/4047b887fc44b110bccb1da09bcb79d6e454b88b/libavformat/isom.h#L202
+            // To learn more about this I recommend reading the patch that introduced this in FFmpeg:
+            // https://patchwork.ffmpeg.org/project/ffmpeg/patch/20170606181601.25187-1-isasi@google.com/#12592
+            let mut min_composition_timestamp = i64::MAX;
+
             let mut samples = Vec::<Sample>::new();
 
             fn get_sample_chunk_offset(stbl: &StblBox, chunk_index: u64) -> u64 {
@@ -231,6 +242,7 @@ impl Mp4 {
                 } else {
                     decode_timestamp
                 };
+                min_composition_timestamp = min_composition_timestamp.min(composition_timestamp);
 
                 let is_sync = if let Some(stss) = &stbl.stss {
                     if last_stss_index < stss.entries.len()
@@ -268,6 +280,15 @@ impl Mp4 {
             if dts_shift > 0 {
                 for sample in &mut samples {
                     sample.decode_timestamp -= dts_shift;
+                }
+            }
+
+            // Shift both DTS & CTS by the smallest CTS.
+            // For details, see declaration of `min_composition_timestamp` above.
+            if min_composition_timestamp != 0 {
+                for sample in &mut samples {
+                    sample.decode_timestamp -= min_composition_timestamp;
+                    sample.composition_timestamp -= min_composition_timestamp;
                 }
             }
 
