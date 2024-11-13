@@ -545,10 +545,16 @@ pub struct Sample {
 
     /// Timestamp of the sample at which it should be decoded,
     /// in time units.
+    ///
+    /// This is offsetted:
+    /// * with decode timestamp shift determined from negative sample offsets
+    /// * such that the first [`Self::composition_timestamp`] is zero.
     pub decode_timestamp: i64,
 
     /// Timestamp of the sample at which the sample should be displayed,
     /// in time units.
+    ///
+    /// This is offsetted such that the first composition timestamp is zero.
     pub composition_timestamp: i64,
 
     /// Duration of the sample in time units.
