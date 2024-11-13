@@ -396,7 +396,7 @@ impl Mp4 {
                                 .copied()
                                 .unwrap_or(default_sample_size) as u64;
 
-                        // Sample offset in bytes. (Must be postive, otherwise this would be outside of the file.)
+                        // Sample offset in bytes. (Must be positive, otherwise this would be outside of the file.)
                         let sample_offset = if traf_idx == 0 && sample_n == 0 {
                             if data_offset_present {
                                 base_data_offset
