@@ -1,5 +1,9 @@
 # `re_mp4` Changelog
 
+## 0.3.0 - 2024-11-13 - Handle time shifts
+* Account for video with DTS shift and resulting negative dts values [#16](https://github.com/rerun-io/re_mp4/pull/16) by [@Wumpf](https://github.com/Wumpf)
+* Shift DTS & CTS by minimum CTS to mimick `ffprobe`'s behavior [#17](https://github.com/rerun-io/re_mp4/pull/17) by [@Wumpf](https://github.com/Wumpf)
+
 
 ## 0.2.1 - 2024-11-12 - Bug fixes
 * Fix integer overflow when ctts contains entries with negative offsets [#14](https://github.com/rerun-io/re_mp4/pull/14) by [@Wumpf](https://github.com/Wumpf)
