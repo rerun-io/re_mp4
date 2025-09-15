@@ -165,10 +165,9 @@ impl Mp4 {
             let stsz = &stbl.stsz;
             let stts = &stbl.stts;
 
-
             // Could probably just always use sample count
             while (sample_n < stsz.sample_sizes.len() && sample_n == 0)
-                || sample_n < stsz.sample_count.try_into().unwrap()
+                || sample_n < stsz.sample_count as usize
             {
                 // compute offset
                 if sample_n == 0 {
