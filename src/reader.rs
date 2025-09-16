@@ -165,7 +165,10 @@ impl Mp4 {
             let stsz = &stbl.stsz;
             let stts = &stbl.stts;
 
-            while sample_n < stsz.sample_sizes.len() {
+            // Could probably just always use sample count
+            while (sample_n < stsz.sample_sizes.len() && stsz.sample_size == 0)
+                || sample_n < stsz.sample_count as usize
+            {
                 // compute offset
                 if sample_n == 0 {
                     chunk_index = 1;
@@ -208,7 +211,11 @@ impl Mp4 {
                 }
 
                 let timescale = trak.mdia.mdhd.timescale as u64;
-                let size = stsz.sample_sizes[sample_n] as u64;
+                let size = if stsz.sample_size == 0 {
+                    stsz.sample_sizes[sample_n] as u64
+                } else {
+                    stsz.sample_size as u64
+                };
                 let offset = get_sample_chunk_offset(stbl, chunk_index) + offset_in_chunk;
                 offset_in_chunk += size;
 
