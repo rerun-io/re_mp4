@@ -1,5 +1,8 @@
 # `re_mp4` Changelog
 
+## 0.4.0 - 2025-09-16 - Handle constant frame size videos
+* Fix edge case for parsing video with constant frame size [#20](https://github.com/rerun-io/re_mp4/pull/20) by [@ntjohnson1](https://github.com/ntjohnson1)
+
 ## 0.3.0 - 2024-11-13 - Handle time shifts
 * Account for video with DTS shift and resulting negative dts values [#16](https://github.com/rerun-io/re_mp4/pull/16) by [@Wumpf](https://github.com/Wumpf)
 * Shift DTS & CTS by minimum CTS to mimic `ffprobe`'s behavior [#17](https://github.com/rerun-io/re_mp4/pull/17) by [@Wumpf](https://github.com/Wumpf)
