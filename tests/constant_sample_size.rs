@@ -1,5 +1,3 @@
-use re_mp4;
-
 mod paths;
 
 fn test_codec_parsing(video_path: &str, expected_sample_length: u32) {
