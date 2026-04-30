@@ -61,7 +61,7 @@ fn parse_hev1() {
 
 #[test]
 fn parse_vp8() {
-    test_codec_parsing("bigbuckbunny/vp8.mp4", "vp08", |stsd_box: &StsdBox| {
+    test_codec_parsing("bigbuckbunny/vp8.mp4", "vp8", |stsd_box: &StsdBox| {
         assert!(matches!(stsd_box.contents, StsdBoxContent::Vp08(_)));
     });
 }
