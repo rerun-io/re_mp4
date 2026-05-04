@@ -1,6 +1,8 @@
-# This is used by `scripts/rust_checks.py` wasm checks so we can forbid some methods that are not available in wasm.
+# Clippy configuration for wasm-specific checks so we can forbid some methods
+# that are not available in wasm.
 #
-# Use it with `pixi run rs-check --only wasm`
+# Use it with:
+# `cargo clippy --target wasm32-unknown-unknown -- --config-path scripts/clippy_wasm/clippy.toml`
 #
 # We cannot forbid all these methods in the main `clippy.toml` because of
 # https://github.com/rust-lang/rust-clippy/issues/10406
