@@ -2,7 +2,7 @@
 
 ## 0.5.0 - 2026-05-04
 * Update VP8 codec_string to be WebGPU compliant [#22](https://github.com/rerun-io/re_mp4/pull/22) by [@AyushAgrawal-A2](https://github.com/AyushAgrawal-A2)
-* Update to Rust 1.92
+* Update to Rust 1.92 and enable many more clippy lints [#23](https://github.com/rerun-io/re_mp4/pull/23) by [@Wumpf](https://github.com/Wumpf)
 
 ## 0.4.0 - 2025-09-16 - Handle constant frame size videos
 * Fix edge case for parsing video with constant frame size [#20](https://github.com/rerun-io/re_mp4/pull/20) by [@ntjohnson1](https://github.com/ntjohnson1)
