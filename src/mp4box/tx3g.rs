@@ -1,4 +1,4 @@
-use byteorder::{BigEndian, ReadBytesExt};
+use byteorder::{BigEndian, ReadBytesExt as _};
 use serde::Serialize;
 use std::io::{Read, Seek};
 
@@ -43,22 +43,22 @@ impl Default for Tx3gBox {
 }
 
 impl Tx3gBox {
-    pub fn get_type(&self) -> BoxType {
+    pub fn get_type() -> BoxType {
         BoxType::Tx3gBox
     }
 
-    pub fn get_size(&self) -> u64 {
+    pub fn get_size() -> u64 {
         HEADER_SIZE + 6 + 32
     }
 }
 
 impl Mp4Box for Tx3gBox {
     fn box_type(&self) -> BoxType {
-        self.get_type()
+        Self::get_type()
     }
 
     fn box_size(&self) -> u64 {
-        self.get_size()
+        Self::get_size()
     }
 
     fn to_json(&self) -> Result<String> {

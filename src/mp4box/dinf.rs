@@ -3,7 +3,7 @@ use std::io::{Read, Seek};
 
 use crate::mp4box::{
     box_start, read_box_header_ext, skip_box, skip_bytes_to, BigEndian, BoxHeader, BoxType, Error,
-    Mp4Box, ReadBox, ReadBytesExt, Result, HEADER_EXT_SIZE, HEADER_SIZE,
+    Mp4Box, ReadBox, ReadBytesExt as _, Result, HEADER_EXT_SIZE, HEADER_SIZE,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
@@ -12,7 +12,7 @@ pub struct DinfBox {
 }
 
 impl DinfBox {
-    pub fn get_type(&self) -> BoxType {
+    pub fn get_type() -> BoxType {
         BoxType::DinfBox
     }
 
@@ -23,7 +23,7 @@ impl DinfBox {
 
 impl Mp4Box for DinfBox {
     fn box_type(&self) -> BoxType {
-        self.get_type()
+        Self::get_type()
     }
 
     fn box_size(&self) -> u64 {
@@ -101,7 +101,7 @@ impl Default for DrefBox {
 }
 
 impl DrefBox {
-    pub fn get_type(&self) -> BoxType {
+    pub fn get_type() -> BoxType {
         BoxType::DrefBox
     }
 
@@ -116,7 +116,7 @@ impl DrefBox {
 
 impl Mp4Box for DrefBox {
     fn box_type(&self) -> BoxType {
-        self.get_type()
+        Self::get_type()
     }
 
     fn box_size(&self) -> u64 {
@@ -199,7 +199,7 @@ impl Default for UrlBox {
 }
 
 impl UrlBox {
-    pub fn get_type(&self) -> BoxType {
+    pub fn get_type() -> BoxType {
         BoxType::UrlBox
     }
 
@@ -207,7 +207,7 @@ impl UrlBox {
         let mut size = HEADER_SIZE + HEADER_EXT_SIZE;
 
         if !self.location.is_empty() {
-            size += self.location.bytes().len() as u64 + 1;
+            size += self.location.len() as u64 + 1;
         }
 
         size
@@ -216,7 +216,7 @@ impl UrlBox {
 
 impl Mp4Box for UrlBox {
     fn box_type(&self) -> BoxType {
-        self.get_type()
+        Self::get_type()
     }
 
     fn box_size(&self) -> u64 {

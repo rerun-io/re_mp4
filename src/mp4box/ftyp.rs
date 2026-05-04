@@ -1,4 +1,4 @@
-use byteorder::{BigEndian, ReadBytesExt};
+use byteorder::{BigEndian, ReadBytesExt as _};
 use serde::Serialize;
 use std::io::{Read, Seek};
 
@@ -14,7 +14,7 @@ pub struct FtypBox {
 }
 
 impl FtypBox {
-    pub fn get_type(&self) -> BoxType {
+    pub fn get_type() -> BoxType {
         BoxType::FtypBox
     }
 
@@ -25,7 +25,7 @@ impl FtypBox {
 
 impl Mp4Box for FtypBox {
     fn box_type(&self) -> BoxType {
-        self.get_type()
+        Self::get_type()
     }
 
     fn box_size(&self) -> u64 {
@@ -55,7 +55,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for FtypBox {
     fn read_box(reader: &mut R, size: u64) -> Result<Self> {
         let start = box_start(reader)?;
 
-        if size < 16 || size % 4 != 0 {
+        if size < 16 || !size.is_multiple_of(4) {
             return Err(Error::InvalidData("ftyp size too small or not aligned"));
         }
         let brand_count = (size - 16) / 4; // header + major + minor

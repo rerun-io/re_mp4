@@ -26,7 +26,7 @@ pub struct MoovBox {
 }
 
 impl MoovBox {
-    pub fn get_type(&self) -> BoxType {
+    pub fn get_type() -> BoxType {
         BoxType::MoovBox
     }
 
@@ -47,7 +47,7 @@ impl MoovBox {
 
 impl Mp4Box for MoovBox {
     fn box_type(&self) -> BoxType {
-        self.get_type()
+        Self::get_type()
     }
 
     fn box_size(&self) -> u64 {
@@ -121,9 +121,9 @@ impl<R: Read + Seek> ReadBox<&mut R> for MoovBox {
         Ok(Self {
             mvhd,
             meta,
-            udta,
             mvex,
             traks,
+            udta,
         })
     }
 }

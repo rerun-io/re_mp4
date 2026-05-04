@@ -1,7 +1,7 @@
 use crate::mp4box::vpcc::VpccBox;
 use crate::mp4box::{
     box_start, read_box_header_ext, skip_bytes_to, BigEndian, BoxHeader, BoxType, Error, RawBox,
-    Read, ReadBox, ReadBytesExt, Result, Seek,
+    Read, ReadBox, ReadBytesExt as _, Result, Seek,
 };
 use crate::Mp4Box;
 use serde::Serialize;

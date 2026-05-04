@@ -1,4 +1,4 @@
-use byteorder::{BigEndian, ReadBytesExt};
+use byteorder::{BigEndian, ReadBytesExt as _};
 use serde::Serialize;
 use std::io::{Read, Seek};
 
@@ -56,7 +56,7 @@ impl StsdBoxContent {
     ///
     /// Usually 8, but 10 for HDR (for example).
     pub fn bit_depth(&self) -> Option<u8> {
-        #[allow(clippy::match_same_arms)]
+        #[expect(clippy::match_same_arms)]
         match self {
             Self::Av01(bx) => Some(bx.av1c.bit_depth),
 
@@ -190,7 +190,7 @@ impl StsdBox {
         }
     }
 
-    pub fn get_type(&self) -> BoxType {
+    pub fn get_type() -> BoxType {
         BoxType::StsdBox
     }
 
@@ -215,7 +215,7 @@ impl StsdBox {
 
 impl Mp4Box for StsdBox {
     fn box_type(&self) -> BoxType {
-        self.get_type()
+        Self::get_type()
     }
 
     fn box_size(&self) -> u64 {

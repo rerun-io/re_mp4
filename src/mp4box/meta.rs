@@ -6,7 +6,7 @@ use crate::mp4box::hdlr::HdlrBox;
 use crate::mp4box::ilst::IlstBox;
 use crate::mp4box::{
     box_start, skip_box, BigEndian, BoxHeader, BoxType, Error, FourCC, Mp4Box, ReadBox,
-    ReadBytesExt, Result, SeekFrom, HEADER_EXT_SIZE, HEADER_SIZE,
+    ReadBytesExt as _, Result, SeekFrom, HEADER_EXT_SIZE, HEADER_SIZE,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -31,7 +31,7 @@ pub enum MetaBox {
 const MDIR: FourCC = FourCC { value: *b"mdir" };
 
 impl MetaBox {
-    pub fn get_type(&self) -> BoxType {
+    pub fn get_type() -> BoxType {
         BoxType::MetaBox
     }
 
@@ -58,7 +58,7 @@ impl MetaBox {
 
 impl Mp4Box for MetaBox {
     fn box_type(&self) -> BoxType {
-        self.get_type()
+        Self::get_type()
     }
 
     fn box_size(&self) -> u64 {

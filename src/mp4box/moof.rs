@@ -19,7 +19,7 @@ pub struct MoofBox {
 }
 
 impl MoofBox {
-    pub fn get_type(&self) -> BoxType {
+    pub fn get_type() -> BoxType {
         BoxType::MoofBox
     }
 
@@ -34,7 +34,7 @@ impl MoofBox {
 
 impl Mp4Box for MoofBox {
     fn box_type(&self) -> BoxType {
-        self.get_type()
+        Self::get_type()
     }
 
     fn box_size(&self) -> u64 {
