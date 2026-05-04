@@ -1,4 +1,4 @@
-use byteorder::{BigEndian, ReadBytesExt};
+use byteorder::{BigEndian, ReadBytesExt as _};
 use serde::Serialize;
 use std::io::{Read, Seek};
 
@@ -28,7 +28,7 @@ impl TfhdBox {
     pub const FLAG_DURATION_IS_EMPTY: u32 = 0x10000;
     pub const FLAG_DEFAULT_BASE_IS_MOOF: u32 = 0x20000;
 
-    pub fn get_type(&self) -> BoxType {
+    pub fn get_type() -> BoxType {
         BoxType::TfhdBox
     }
 
@@ -55,7 +55,7 @@ impl TfhdBox {
 
 impl Mp4Box for TfhdBox {
     fn box_type(&self) -> BoxType {
-        self.get_type()
+        Self::get_type()
     }
 
     fn box_size(&self) -> u64 {

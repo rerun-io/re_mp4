@@ -1,4 +1,4 @@
-use byteorder::{BigEndian, ReadBytesExt};
+use byteorder::{BigEndian, ReadBytesExt as _};
 use serde::Serialize;
 use std::io::{Read, Seek};
 
@@ -41,7 +41,7 @@ impl Mp4aBox {
         }
     }
 
-    pub fn get_type(&self) -> BoxType {
+    pub fn get_type() -> BoxType {
         BoxType::Mp4aBox
     }
 
@@ -56,7 +56,7 @@ impl Mp4aBox {
 
 impl Mp4Box for Mp4aBox {
     fn box_type(&self) -> BoxType {
-        self.get_type()
+        Self::get_type()
     }
 
     fn box_size(&self) -> u64 {
@@ -212,7 +212,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for EsdsBox {
     }
 }
 
-#[allow(dead_code)]
+#[expect(dead_code)]
 trait Descriptor: Sized {
     fn desc_tag() -> u8;
     fn desc_size() -> u32;
@@ -456,15 +456,15 @@ impl<R: Read + Seek> ReadDesc<&mut R> for DecoderSpecificDescriptor {
         let byte_a = reader.read_u8()?;
         let byte_b = reader.read_u8()?;
         let profile = get_audio_object_type(byte_a, byte_b);
-        let freq_index;
-        let chan_conf;
-        if profile > 31 {
-            freq_index = (byte_b >> 1) & 0x0F;
-            chan_conf = get_chan_conf(reader, byte_b, freq_index, true)?;
+        let (freq_index, chan_conf) = if profile > 31 {
+            let freq_index = (byte_b >> 1) & 0x0F;
+            let chan_conf = get_chan_conf(reader, byte_b, freq_index, true)?;
+            (freq_index, chan_conf)
         } else {
-            freq_index = ((byte_a & 0x07) << 1) + (byte_b >> 7);
-            chan_conf = get_chan_conf(reader, byte_b, freq_index, false)?;
-        }
+            let freq_index = ((byte_a & 0x07) << 1) + (byte_b >> 7);
+            let chan_conf = get_chan_conf(reader, byte_b, freq_index, false)?;
+            (freq_index, chan_conf)
+        };
 
         Ok(Self {
             profile,

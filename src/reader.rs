@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::io::{Read, Seek};
 
 use crate::{
-    skip_box, BoxHeader, BoxType, EmsgBox, Error, FtypBox, MoofBox, MoovBox, ReadBox, Result,
+    skip_box, BoxHeader, BoxType, EmsgBox, Error, FtypBox, MoofBox, MoovBox, ReadBox as _, Result,
     StblBox, StsdBoxContent, TfhdBox, TrackId, TrackKind, TrakBox, TrunBox,
 };
 
@@ -62,10 +62,7 @@ impl Mp4 {
                 BoxType::FtypBox => {
                     ftyp = Some(FtypBox::read_box(&mut reader, s)?);
                 }
-                BoxType::FreeBox => {
-                    skip_box(&mut reader, s)?;
-                }
-                BoxType::MdatBox => {
+                BoxType::FreeBox | BoxType::MdatBox => {
                     skip_box(&mut reader, s)?;
                 }
                 BoxType::MoovBox => {
@@ -119,7 +116,7 @@ impl Mp4 {
     /// Process each `trak` box to obtain a list of samples for each track.
     ///
     /// Note that the list will be incomplete if the file is fragmented.
-    fn build_tracks(&mut self) -> BTreeMap<TrackId, Track> {
+    fn build_tracks(&self) -> BTreeMap<TrackId, Track> {
         let mut tracks = BTreeMap::new();
 
         // load samples from traks
@@ -201,7 +198,8 @@ impl Mp4 {
                 }
 
                 // compute timestamp, duration, is_sync
-                if sample_n as i64 > last_sample_in_stts_run {
+                let sample_n_i64 = i64::try_from(sample_n).unwrap_or(i64::MAX);
+                if sample_n_i64 > last_sample_in_stts_run {
                     stts_run_index += 1;
                     if last_sample_in_stts_run < 0 {
                         last_sample_in_stts_run = 0;
@@ -223,13 +221,14 @@ impl Mp4 {
                     samples[sample_n - 1].duration =
                         stts.entries[stts_run_index as usize].sample_delta as u64;
 
-                    samples[sample_n - 1].decode_timestamp + samples[sample_n - 1].duration as i64
+                    samples[sample_n - 1].decode_timestamp
+                        + samples[sample_n - 1].duration.cast_signed()
                 } else {
                     0
                 };
 
                 let composition_timestamp = if let Some(ctts) = &stbl.ctts {
-                    if sample_n as i64 >= last_sample_in_ctts_run {
+                    if sample_n_i64 >= last_sample_in_ctts_run {
                         ctts_run_index += 1;
                         if last_sample_in_ctts_run < 0 {
                             last_sample_in_ctts_run = 0;
@@ -319,7 +318,7 @@ impl Mp4 {
 
     /// In case the input file is fragmented, it will contain one or more `moof` boxes,
     /// which must be processed to obtain the full list of samples for each track.
-    fn update_sample_list(&mut self, tracks: &mut BTreeMap<TrackId, Track>) -> Result<()> {
+    fn update_sample_list(&self, tracks: &mut BTreeMap<TrackId, Track>) -> Result<()> {
         let mut last_run_position = 0;
 
         for moof in &self.moofs {
@@ -373,16 +372,15 @@ impl Mp4 {
                             sample_flags = trun.first_sample_flags.unwrap_or(sample_flags);
                         }
 
-                        let mut decode_timestamp = 0;
-                        if track.first_traf_merged || sample_n > 0 {
+                        let decode_timestamp = if track.first_traf_merged || sample_n > 0 {
                             let prev = &track.samples[track.samples.len() - 1];
-                            decode_timestamp = prev.decode_timestamp + prev.duration as i64;
+                            prev.decode_timestamp + prev.duration.cast_signed()
                         } else {
-                            if let Some(tfdt) = &traf.tfdt {
-                                decode_timestamp = tfdt.base_media_decode_time as i64;
-                            }
                             track.first_traf_merged = true;
-                        }
+                            traf.tfdt
+                                .as_ref()
+                                .map_or(0, |tfdt| tfdt.base_media_decode_time.cast_signed())
+                        };
 
                         let composition_timestamp = if trun.flags & TrunBox::FLAG_SAMPLE_CTS != 0 {
                             decode_timestamp
@@ -575,6 +573,10 @@ impl Sample {
     }
 }
 
+#[expect(
+    clippy::missing_fields_in_debug,
+    reason = "Omit noisy fields from debug output"
+)]
 impl std::fmt::Debug for Track {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Track")
@@ -586,6 +588,10 @@ impl std::fmt::Debug for Track {
     }
 }
 
+#[expect(
+    clippy::missing_fields_in_debug,
+    reason = "Omit noisy fields from debug output"
+)]
 impl std::fmt::Debug for Sample {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Sample")

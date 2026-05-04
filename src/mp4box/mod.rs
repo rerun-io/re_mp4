@@ -1,6 +1,6 @@
 //! All ISO-MP4 boxes (atoms) and operations.
 //!
-//! * [ISO/IEC 14496-12](https://en.wikipedia.org/wiki/MPEG-4_Part_14) - ISO Base Media File Format (QuickTime, MPEG-4, etc)
+//! * [ISO/IEC 14496-12](https://en.wikipedia.org/wiki/MPEG-4_Part_14) - ISO Base Media File Format (`QuickTime`, MPEG-4, etc)
 //! * [ISO/IEC 14496-14](https://en.wikipedia.org/wiki/MPEG-4_Part_14) - MP4 file format
 //! * ISO/IEC 14496-17 - Streaming text format
 //! * [ISO 23009-1](https://www.iso.org/standard/79329.html) -Dynamic adaptive streaming over HTTP (DASH)
@@ -57,7 +57,7 @@
 
 use byteorder::{BigEndian, ReadBytesExt};
 use serde::Serialize;
-use std::convert::TryInto;
+use std::convert::TryInto as _;
 use std::io::{Read, Seek, SeekFrom};
 
 use crate::{
@@ -163,6 +163,7 @@ pub const HEADER_EXT_SIZE: u64 = 4;
 
 macro_rules! boxtype {
     ($( $name:ident => $value:expr ),*) => {
+        #[expect(clippy::enum_variant_names, reason = "MP4 box type variants keep Box suffix for clarity/API")]
         #[derive(Clone, Copy, PartialEq, Eq)]
         pub enum BoxType {
             $( $name, )*
@@ -282,11 +283,11 @@ impl BoxHeader {
         reader.read_exact(&mut buf)?;
 
         // Get size.
-        #[allow(clippy::unwrap_used)] // [u8; 4] from a slice that is 4 long cannot fail
+        #[expect(clippy::unwrap_used)] // [u8; 4] from a slice that is 4 long cannot fail
         let size = u32::from_be_bytes(buf[0..4].try_into().unwrap());
 
         // Get box type string.
-        #[allow(clippy::unwrap_used)] // [u8; 4] from a slice that is 4 long cannot fail
+        #[expect(clippy::unwrap_used)] // [u8; 4] from a slice that is 4 long cannot fail
         let typ = u32::from_be_bytes(buf[4..8].try_into().unwrap());
 
         // Get largesize if size is 1
@@ -326,7 +327,8 @@ pub fn box_start<R: Seek>(seeker: &mut R) -> Result<u64> {
 }
 
 pub fn skip_bytes<S: Seek>(seeker: &mut S, size: u64) -> Result<()> {
-    seeker.seek(SeekFrom::Current(size as i64))?;
+    let size = i64::try_from(size).map_err(|_err| Error::InvalidData("skip size too large"))?;
+    seeker.seek(SeekFrom::Current(size))?;
     Ok(())
 }
 

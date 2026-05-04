@@ -1,4 +1,4 @@
-use byteorder::{BigEndian, ReadBytesExt};
+use byteorder::{BigEndian, ReadBytesExt as _};
 use serde::Serialize;
 use std::io::{Read, Seek};
 use std::mem::size_of;
@@ -18,7 +18,7 @@ pub struct SttsBox {
 }
 
 impl SttsBox {
-    pub fn get_type(&self) -> BoxType {
+    pub fn get_type() -> BoxType {
         BoxType::SttsBox
     }
 
@@ -35,7 +35,7 @@ pub struct SttsEntry {
 
 impl Mp4Box for SttsBox {
     fn box_type(&self) -> BoxType {
-        self.get_type()
+        Self::get_type()
     }
 
     fn box_size(&self) -> u64 {

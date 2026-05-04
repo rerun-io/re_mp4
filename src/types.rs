@@ -225,6 +225,10 @@ const MEDIA_TYPE_VP9: &str = "vp9";
 const MEDIA_TYPE_AAC: &str = "aac";
 const MEDIA_TYPE_TTXT: &str = "ttxt";
 
+#[expect(
+    clippy::upper_case_acronyms,
+    reason = "Media type names match codec names/API"
+)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MediaType {
     H264,
@@ -279,6 +283,10 @@ impl From<&MediaType> for &str {
     }
 }
 
+#[expect(
+    clippy::enum_variant_names,
+    reason = "Variant names match existing public API"
+)]
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum AvcProfile {
     AvcConstrainedBaseline, // 66 with constraint set 1
@@ -608,6 +616,10 @@ impl Default for AacConfig {
 #[derive(Debug, PartialEq, Eq, Clone, Default)]
 pub struct TtxtConfig {}
 
+#[expect(
+    clippy::enum_variant_names,
+    reason = "Variant names match wrapped config types"
+)]
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum MediaConfig {
     AvcConfig(AvcConfig),
@@ -667,7 +679,7 @@ pub enum DataType {
     TempoCpil = 0x000015,
 }
 
-#[allow(clippy::derivable_impls)]
+#[expect(clippy::derivable_impls)]
 impl std::default::Default for DataType {
     fn default() -> Self {
         Self::Binary
@@ -726,18 +738,22 @@ impl<'a, T: Metadata<'a>> Metadata<'a> for &'a T {
 
 impl<'a, T: Metadata<'a>> Metadata<'a> for Option<T> {
     fn title(&self) -> Option<Cow<'_, str>> {
-        self.as_ref().and_then(|t| t.title())
+        let t = self.as_ref()?;
+        t.title()
     }
 
     fn year(&self) -> Option<u32> {
-        self.as_ref().and_then(|t| t.year())
+        let t = self.as_ref()?;
+        t.year()
     }
 
     fn poster(&self) -> Option<&[u8]> {
-        self.as_ref().and_then(|t| t.poster())
+        let t = self.as_ref()?;
+        t.poster()
     }
 
     fn summary(&self) -> Option<Cow<'_, str>> {
-        self.as_ref().and_then(|t| t.summary())
+        let t = self.as_ref()?;
+        t.summary()
     }
 }

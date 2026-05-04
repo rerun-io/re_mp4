@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::io::{Read, Seek};
 
-use byteorder::ByteOrder;
+use byteorder::ByteOrder as _;
 use serde::Serialize;
 
 use crate::mp4box::data::DataBox;
@@ -17,7 +17,7 @@ pub struct IlstBox {
 }
 
 impl IlstBox {
-    pub fn get_type(&self) -> BoxType {
+    pub fn get_type() -> BoxType {
         BoxType::IlstBox
     }
 
@@ -28,7 +28,7 @@ impl IlstBox {
 
 impl Mp4Box for IlstBox {
     fn box_type(&self) -> BoxType {
-        self.get_type()
+        Self::get_type()
     }
 
     fn box_size(&self) -> u64 {
@@ -143,7 +143,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for IlstItemBox {
     }
 }
 
-impl<'a> Metadata<'a> for IlstBox {
+impl Metadata<'_> for IlstBox {
     fn title(&self) -> Option<Cow<'_, str>> {
         self.items.get(&MetadataKey::Title).map(item_to_str)
     }

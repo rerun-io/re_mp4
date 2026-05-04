@@ -1,12 +1,13 @@
 use std::{
-    convert::TryFrom,
+    convert::TryFrom as _,
     io::{Read, Seek},
 };
 
 use serde::Serialize;
 
 use crate::mp4box::{
-    box_start, BigEndian, BoxType, DataType, Mp4Box, ReadBox, ReadBytesExt, Result, HEADER_SIZE,
+    box_start, BigEndian, BoxType, DataType, Mp4Box, ReadBox, ReadBytesExt as _, Result,
+    HEADER_SIZE,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
@@ -16,7 +17,7 @@ pub struct DataBox {
 }
 
 impl DataBox {
-    pub fn get_type(&self) -> BoxType {
+    pub fn get_type() -> BoxType {
         BoxType::DataBox
     }
 
@@ -31,7 +32,7 @@ impl DataBox {
 
 impl Mp4Box for DataBox {
     fn box_type(&self) -> BoxType {
-        self.get_type()
+        Self::get_type()
     }
 
     fn box_size(&self) -> u64 {

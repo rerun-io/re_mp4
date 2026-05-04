@@ -15,7 +15,7 @@ pub struct TrafBox {
 }
 
 impl TrafBox {
-    pub fn get_type(&self) -> BoxType {
+    pub fn get_type() -> BoxType {
         BoxType::TrafBox
     }
 
@@ -34,7 +34,7 @@ impl TrafBox {
 
 impl Mp4Box for TrafBox {
     fn box_type(&self) -> BoxType {
-        self.get_type()
+        Self::get_type()
     }
 
     fn box_size(&self) -> u64 {

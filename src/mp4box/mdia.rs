@@ -15,7 +15,7 @@ pub struct MdiaBox {
 }
 
 impl MdiaBox {
-    pub fn get_type(&self) -> BoxType {
+    pub fn get_type() -> BoxType {
         BoxType::MdiaBox
     }
 
@@ -26,7 +26,7 @@ impl MdiaBox {
 
 impl Mp4Box for MdiaBox {
     fn box_type(&self) -> BoxType {
-        self.get_type()
+        Self::get_type()
     }
 
     fn box_size(&self) -> u64 {

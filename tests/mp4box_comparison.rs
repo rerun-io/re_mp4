@@ -69,7 +69,9 @@ fn compare_video_snapshot_with_mp4box_output(video_path: &Path) {
                 &base_path.join(format!("{video_path_str}.track_{id}.json")),
                 format!(
                     r#"{{ "codec": {:?}, "width": {}, "height": {}, "num_samples": {}, "description": {:?} }}"#,
-                    track.codec_string(&video).unwrap_or("unknown".to_owned()),
+                    track
+                        .codec_string(&video)
+                        .unwrap_or_else(|| "unknown".to_owned()),
                     track.width,
                     track.height,
                     track.samples.len(),
@@ -90,7 +92,7 @@ fn compare_video_snapshot_with_mp4box_output_bigbuckbunny() {
     for entry in std::fs::read_dir(bigbuckbunny_path).unwrap() {
         let entry = entry.unwrap();
         let path = entry.path();
-        if path.is_file() && path.extension().map_or(false, |e| e == "mp4") {
+        if path.is_file() && path.extension().is_some_and(|e| e == "mp4") {
             println!("-- Comparing {path:?}");
             compare_video_snapshot_with_mp4box_output(&path);
         }
