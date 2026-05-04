@@ -229,10 +229,10 @@ impl<R: Read + Seek> ReadBox<&mut R> for HevcDecoderConfigurationRecord {
         let avg_frame_rate = reader.read_u16::<BigEndian>()?;
 
         let params = reader.read_u8()?;
-        let constant_frame_rate = params & (0b11000000 >> 6);
-        let num_temporal_layers = params & (0b00111000 >> 3);
-        let temporal_id_nested = (params & (0b00000100 >> 2)) > 0;
-        let length_size_minus_one = params & 0b000011;
+        let constant_frame_rate = (params & 0b11000000) >> 6;
+        let num_temporal_layers = (params & 0b00111000) >> 3;
+        let temporal_id_nested = (params & 0b00000100) > 0;
+        let length_size_minus_one = params & 0b00000011;
 
         let num_of_arrays = reader.read_u8()?;
 
