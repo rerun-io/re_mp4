@@ -102,12 +102,9 @@ impl StsdBoxContent {
                 format!("hev1{}", hevc_codec_details(hvcc))
             }
 
-            Self::Vp08(Vp08Box { vpcc, .. }) => {
-                let profile = vpcc.profile;
-                let level = vpcc.level;
-                let bit_depth = vpcc.bit_depth;
-
-                format!("vp08.{profile:02}.{level:02}.{bit_depth:02}")
+            Self::Vp08(_) => {
+                // https://www.w3.org/TR/webcodecs-vp8-codec-registration/#fully-qualified-codec-strings
+                String::from("vp8")
             }
 
             Self::Vp09(Vp09Box { vpcc, .. }) => {
