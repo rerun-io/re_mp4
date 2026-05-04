@@ -27,6 +27,7 @@ impl Mp4 {
     /// Reads the contents of a file as MP4 data, and returns both the parsed MP4 and its raw data.
     ///
     /// Sample ranges returned by the resulting [`Mp4`] should be used with the same input buffer.
+    #[cfg(not(target_family = "wasm"))]
     pub fn read_file(file_path: impl AsRef<std::path::Path>) -> Result<(Self, Vec<u8>)> {
         let bytes = std::fs::read(file_path)?;
         Ok((Self::read_bytes(&bytes)?, bytes))
