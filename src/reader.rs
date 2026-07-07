@@ -439,7 +439,10 @@ impl Mp4 {
 
                         track.samples.push(Sample {
                             id: track.samples.len() as u32,
-                            is_sync: (sample_flags >> 16) & 0x1 != 0,
+                            // Bit 16 of the 32-bit sample flags is `sample_is_non_sync_sample`
+                            // (ISO/IEC 14496-12 §8.8.3.1), so a sync sample (keyframe) is one
+                            // where that bit is *clear*.
+                            is_sync: (sample_flags >> 16) & 0x1 == 0,
                             size: sample_size,
                             offset: sample_offset,
                             timescale: trak.mdia.mdhd.timescale as u64,
