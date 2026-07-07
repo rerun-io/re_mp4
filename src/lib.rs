@@ -1,4 +1,4 @@
-//! `mp4` is a Rust library to read and write ISO-MP4 files.
+//! `re_mp4` is a Rust library to parse ISO-MP4 files.
 //!
 //! This package contains MPEG-4 specifications defined in parts:
 //!    * ISO/IEC 14496-12 - ISO Base Media File Format (`QuickTime`, MPEG-4, etc)
