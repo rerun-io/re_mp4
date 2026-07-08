@@ -92,7 +92,7 @@ dependencies = [
 
 [[package]]
 name = "re_mp4"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "byteorder",
  "bytes",

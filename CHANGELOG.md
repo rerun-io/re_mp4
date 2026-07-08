@@ -1,5 +1,9 @@
 # `re_mp4` Changelog
 
+## 0.5.1 - 2026-07-08
+* Improve crate docstring [#26](https://github.com/rerun-io/re_mp4/pull/26)
+* Fix `Sample::is_sync` for fragmented mp4s [#27](https://github.com/rerun-io/re_mp4/pull/27)
+
 ## 0.5.0 - 2026-05-04
 * Update VP8 codec_string to be WebGPU compliant [#22](https://github.com/rerun-io/re_mp4/pull/22) by [@AyushAgrawal-A2](https://github.com/AyushAgrawal-A2)
 * Update to Rust 1.92 and enable many more clippy lints [#23](https://github.com/rerun-io/re_mp4/pull/23) by [@Wumpf](https://github.com/Wumpf)
