@@ -1,4 +1,12 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.9"
+# dependencies = [
+#     "GitPython",
+#     "requests",
+#     "tqdm",
+# ]
+# ///
 # Copied from https://github.com/rerun-io/rerun_template
 
 """
@@ -6,6 +14,14 @@ Summarizes recent PRs based on their GitHub labels.
 
 The result can be copy-pasted into CHANGELOG.md,
 though it often needs some manual editing too.
+
+Run it with `uv`, which resolves the dependencies automatically:
+
+    ./scripts/generate_changelog.py --version 0.5.1
+
+or explicitly:
+
+    uv run scripts/generate_changelog.py --version 0.5.1
 """
 
 from __future__ import annotations
