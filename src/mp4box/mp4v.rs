@@ -3,8 +3,9 @@ use serde::Serialize;
 use std::io::{Read, Seek};
 
 use crate::mp4box::{
-    box_start, mp4a::size_of_length, mp4a::EsdsBox, skip_bytes, skip_bytes_to, value_u32, BoxHeader,
-    BoxType, Error, FixedPointU16, Mp4Box, ReadBox, Result, HEADER_EXT_SIZE, HEADER_SIZE,
+    box_start, mp4a::size_of_length, mp4a::EsdsBox, skip_bytes, skip_bytes_to, value_u32,
+    BoxHeader, BoxType, Error, FixedPointU16, Mp4Box, ReadBox, Result, HEADER_EXT_SIZE,
+    HEADER_SIZE,
 };
 
 /// MPEG-4 Part 2 / Visual (`mp4v`) visual sample entry.

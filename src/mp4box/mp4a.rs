@@ -484,7 +484,8 @@ impl<R: Read + Seek> ReadDesc<&mut R> for DecoderSpecificDescriptor {
         let mut raw = vec![0u8; size as usize];
         reader.read_exact(&mut raw)?;
 
-        let (profile, freq_index, chan_conf) = parse_audio_specific_config(&raw).unwrap_or_default();
+        let (profile, freq_index, chan_conf) =
+            parse_audio_specific_config(&raw).unwrap_or_default();
 
         Ok(Self {
             profile,
