@@ -72,3 +72,18 @@ fn parse_vp9() {
         assert!(matches!(stsd_box.contents, StsdBoxContent::Vp09(_)));
     });
 }
+
+#[test]
+fn parse_mp4v() {
+    test_codec_parsing("mpeg4_part2.mp4", "mp4v", |stsd_box: &StsdBox| {
+        let StsdBoxContent::Mp4v(mp4v) = &stsd_box.contents else {
+            panic!("expected an mp4v sample entry, got {:?}", stsd_box.contents);
+        };
+        // MPEG-4 Visual object type indication, and a non-empty VOL header.
+        assert_eq!(mp4v.object_type_indication, 0x20);
+        assert!(
+            !mp4v.config_raw.is_empty(),
+            "expected a non-empty esds decoder config (VOL header)"
+        );
+    });
+}
