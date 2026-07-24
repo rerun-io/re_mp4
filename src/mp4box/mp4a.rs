@@ -222,7 +222,7 @@ trait ReadDesc<T>: Sized {
     fn read_desc(_: T, size: u32) -> Result<Self>;
 }
 
-fn read_desc<R: Read>(reader: &mut R) -> Result<(u8, u32)> {
+pub(crate) fn read_desc<R: Read>(reader: &mut R) -> Result<(u8, u32)> {
     let tag = reader.read_u8()?;
 
     let mut size: u32 = 0;
@@ -237,7 +237,7 @@ fn read_desc<R: Read>(reader: &mut R) -> Result<(u8, u32)> {
     Ok((tag, size))
 }
 
-fn size_of_length(size: u32) -> u32 {
+pub(crate) fn size_of_length(size: u32) -> u32 {
     match size {
         0x0..=0x7F => 1,
         0x80..=0x3FFF => 2,
@@ -399,6 +399,12 @@ pub struct DecoderSpecificDescriptor {
     pub profile: u8,
     pub freq_index: u8,
     pub chan_conf: u8,
+
+    /// Raw `DecoderSpecificInfo` bytes.
+    ///
+    /// For AAC these are the `AudioSpecificConfig` the other fields are parsed from;
+    /// for `mp4v` they are the Video Object Layer header a decoder needs as extradata.
+    pub raw: Vec<u8>,
 }
 
 impl DecoderSpecificDescriptor {
@@ -407,6 +413,7 @@ impl DecoderSpecificDescriptor {
             profile: config.profile as u8,
             freq_index: config.freq_index as u8,
             chan_conf: config.chan_conf as u8,
+            raw: Vec::new(),
         }
     }
 }
@@ -451,25 +458,39 @@ fn get_chan_conf<R: Read + Seek>(
     Ok(chan_conf)
 }
 
+/// Parse the AAC fields out of an `AudioSpecificConfig`.
+///
+/// Returns an error on a truncated buffer so the caller can fall back to defaults
+/// for non-AAC payloads (e.g. an `mp4v` VOL header that shares this descriptor).
+fn parse_audio_specific_config(raw: &[u8]) -> Result<(u8, u8, u8)> {
+    let mut reader = std::io::Cursor::new(raw);
+    let byte_a = reader.read_u8()?;
+    let byte_b = reader.read_u8()?;
+    let profile = get_audio_object_type(byte_a, byte_b);
+    let (freq_index, chan_conf) = if profile > 31 {
+        let freq_index = (byte_b >> 1) & 0x0F;
+        let chan_conf = get_chan_conf(&mut reader, byte_b, freq_index, true)?;
+        (freq_index, chan_conf)
+    } else {
+        let freq_index = ((byte_a & 0x07) << 1) + (byte_b >> 7);
+        let chan_conf = get_chan_conf(&mut reader, byte_b, freq_index, false)?;
+        (freq_index, chan_conf)
+    };
+    Ok((profile, freq_index, chan_conf))
+}
+
 impl<R: Read + Seek> ReadDesc<&mut R> for DecoderSpecificDescriptor {
-    fn read_desc(reader: &mut R, _size: u32) -> Result<Self> {
-        let byte_a = reader.read_u8()?;
-        let byte_b = reader.read_u8()?;
-        let profile = get_audio_object_type(byte_a, byte_b);
-        let (freq_index, chan_conf) = if profile > 31 {
-            let freq_index = (byte_b >> 1) & 0x0F;
-            let chan_conf = get_chan_conf(reader, byte_b, freq_index, true)?;
-            (freq_index, chan_conf)
-        } else {
-            let freq_index = ((byte_a & 0x07) << 1) + (byte_b >> 7);
-            let chan_conf = get_chan_conf(reader, byte_b, freq_index, false)?;
-            (freq_index, chan_conf)
-        };
+    fn read_desc(reader: &mut R, size: u32) -> Result<Self> {
+        let mut raw = vec![0u8; size as usize];
+        reader.read_exact(&mut raw)?;
+
+        let (profile, freq_index, chan_conf) = parse_audio_specific_config(&raw).unwrap_or_default();
 
         Ok(Self {
             profile,
             freq_index,
             chan_conf,
+            raw,
         })
     }
 }

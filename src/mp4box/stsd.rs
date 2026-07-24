@@ -127,10 +127,11 @@ impl StsdBoxContent {
                 object_type_indication,
                 ..
             }) => {
+                // `mp4v.<object-type-indication-hex>`, per RFC 6381 §3.3:
                 // https://datatracker.ietf.org/doc/html/rfc6381#section-3.3
-                // `mp4v.<object-type-indication-hex>` (the profile-level suffix is
-                // omitted; the native decoder does not need it and mp4v is not a
-                // WebCodecs codec string anyway).
+                // RFC 6381 also allows a `.<profile_and_level>` suffix parsed from the
+                // VOS header, but we omit it: the native decoder does not need it, and
+                // it would not help on web (mp4v has no WebCodecs codec string).
                 format!("mp4v.{object_type_indication:02x}")
             }
 
