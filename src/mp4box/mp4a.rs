@@ -382,6 +382,20 @@ impl<R: Read + Seek> ReadDesc<&mut R> for DecoderConfigDescriptor {
             current = reader.stream_position()?;
         }
 
+        let mut dec_specific = dec_specific.unwrap_or_default();
+
+        // For an audio stream a present `DecoderSpecificInfo` is an `AudioSpecificConfig`
+        // whose fields must parse, so a malformed one is a hard error (as it always was);
+        // an absent one leaves the fields at their defaults (also as before). MPEG-4
+        // Visual (`mp4v`, object type `0x20`) reuses this descriptor to carry an opaque
+        // VOL header instead, so skip the audio parse for it.
+        if object_type_indication != MPEG4_VISUAL_OBJECT_TYPE && !dec_specific.raw.is_empty() {
+            let (profile, freq_index, chan_conf) = parse_audio_specific_config(&dec_specific.raw)?;
+            dec_specific.profile = profile;
+            dec_specific.freq_index = freq_index;
+            dec_specific.chan_conf = chan_conf;
+        }
+
         Ok(Self {
             object_type_indication,
             stream_type,
@@ -389,7 +403,7 @@ impl<R: Read + Seek> ReadDesc<&mut R> for DecoderConfigDescriptor {
             buffer_size_db,
             max_bitrate,
             avg_bitrate,
-            dec_specific: dec_specific.unwrap_or_default(),
+            dec_specific,
         })
     }
 }
@@ -427,6 +441,9 @@ impl Descriptor for DecoderSpecificDescriptor {
         2
     }
 }
+
+/// `objectTypeIndication` for MPEG-4 Visual (`mp4v`) in a `DecoderConfigDescriptor`.
+pub(crate) const MPEG4_VISUAL_OBJECT_TYPE: u8 = 0x20;
 
 fn get_audio_object_type(byte_a: u8, byte_b: u8) -> u8 {
     let mut profile = byte_a >> 3;
@@ -481,16 +498,22 @@ fn parse_audio_specific_config(raw: &[u8]) -> Result<(u8, u8, u8)> {
 
 impl<R: Read + Seek> ReadDesc<&mut R> for DecoderSpecificDescriptor {
     fn read_desc(reader: &mut R, size: u32) -> Result<Self> {
-        let mut raw = vec![0u8; size as usize];
-        reader.read_exact(&mut raw)?;
+        // `size` is an untrusted descriptor length, so read through a `take` and let
+        // `raw` grow with the bytes that actually arrive rather than pre-allocating
+        // `size` (which a malformed file could inflate to gigabytes).
+        let mut raw = Vec::new();
+        let read = reader.by_ref().take(size as u64).read_to_end(&mut raw)?;
+        if read as u32 != size {
+            return Err(Error::InvalidData("truncated DecoderSpecificInfo"));
+        }
 
-        let (profile, freq_index, chan_conf) =
-            parse_audio_specific_config(&raw).unwrap_or_default();
-
+        // The AAC-specific fields (`profile`/`freq_index`/`chan_conf`) are parsed by
+        // the caller once the object type is known — the same descriptor also carries
+        // opaque `mp4v` extradata, for which those fields don't apply.
         Ok(Self {
-            profile,
-            freq_index,
-            chan_conf,
+            profile: 0,
+            freq_index: 0,
+            chan_conf: 0,
             raw,
         })
     }

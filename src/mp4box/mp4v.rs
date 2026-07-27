@@ -3,9 +3,9 @@ use serde::Serialize;
 use std::io::{Read, Seek};
 
 use crate::mp4box::{
-    box_start, mp4a::size_of_length, mp4a::EsdsBox, skip_bytes, skip_bytes_to, value_u32,
-    BoxHeader, BoxType, Error, FixedPointU16, Mp4Box, ReadBox, Result, HEADER_EXT_SIZE,
-    HEADER_SIZE,
+    box_start, mp4a::size_of_length, mp4a::EsdsBox, mp4a::MPEG4_VISUAL_OBJECT_TYPE, skip_bytes,
+    skip_bytes_to, value_u32, BoxHeader, BoxType, Error, FixedPointU16, Mp4Box, ReadBox, Result,
+    HEADER_EXT_SIZE, HEADER_SIZE,
 };
 
 /// MPEG-4 Part 2 / Visual (`mp4v`) visual sample entry.
@@ -27,7 +27,8 @@ pub struct Mp4vBox {
     pub frame_count: u16,
     pub depth: u16,
 
-    /// Object type indication from the `esds` `DecoderConfigDescriptor` (`0x20` for MPEG-4 Visual).
+    /// Object type indication from the `esds` `DecoderConfigDescriptor`
+    /// ([`MPEG4_VISUAL_OBJECT_TYPE`] for MPEG-4 Visual).
     pub object_type_indication: u8,
 
     /// Raw `DecoderSpecificInfo` bytes: the Video Object Layer header used as extradata.
@@ -44,7 +45,7 @@ impl Default for Mp4vBox {
             vertresolution: FixedPointU16::new(0x48),
             frame_count: 1,
             depth: 0x0018,
-            object_type_indication: 0x20,
+            object_type_indication: MPEG4_VISUAL_OBJECT_TYPE,
             config_raw: Vec::new(),
         }
     }
