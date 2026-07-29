@@ -76,4 +76,7 @@ exclude = [
   'https://crates.io/crates/.*',                  # Avoid crates.io rate-limiting
   'https://github.com/rerun-io/rerun/commit/\.*', # Ignore links to our own commits (typically in changelog).
   'https://github.com/rerun-io/rerun/pull/\.*',   # Ignore links to our own pull requests (typically in changelog).
+
+  # Bot-blocked.
+  'https://www.iso.org/standard/.*', # Serves 403 to anything without a browser user agent. The specs we cite are real.
 ]
