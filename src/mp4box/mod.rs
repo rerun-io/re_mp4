@@ -87,6 +87,7 @@ pub(crate) mod minf;
 pub(crate) mod moof;
 pub(crate) mod moov;
 pub(crate) mod mp4a;
+pub(crate) mod mp4v;
 pub(crate) mod mvex;
 pub(crate) mod mvhd;
 pub(crate) mod smhd;
@@ -133,6 +134,7 @@ pub use minf::MinfBox;
 pub use moof::MoofBox;
 pub use moov::MoovBox;
 pub use mp4a::Mp4aBox;
+pub use mp4v::Mp4vBox;
 pub use mvex::MvexBox;
 pub use mvhd::MvhdBox;
 pub use smhd::SmhdBox;
@@ -239,6 +241,7 @@ boxtype! {
     Hvc1Box => 0x68766331,
     HvcCBox => 0x68766343,
     Mp4aBox => 0x6d703461,
+    Mp4vBox => 0x6d703476,
     EsdsBox => 0x65736473,
     Tx3gBox => 0x74783367,
     VpccBox => 0x76706343,

@@ -222,7 +222,7 @@ trait ReadDesc<T>: Sized {
     fn read_desc(_: T, size: u32) -> Result<Self>;
 }
 
-fn read_desc<R: Read>(reader: &mut R) -> Result<(u8, u32)> {
+pub(crate) fn read_desc<R: Read>(reader: &mut R) -> Result<(u8, u32)> {
     let tag = reader.read_u8()?;
 
     let mut size: u32 = 0;
@@ -237,7 +237,7 @@ fn read_desc<R: Read>(reader: &mut R) -> Result<(u8, u32)> {
     Ok((tag, size))
 }
 
-fn size_of_length(size: u32) -> u32 {
+pub(crate) fn size_of_length(size: u32) -> u32 {
     match size {
         0x0..=0x7F => 1,
         0x80..=0x3FFF => 2,
@@ -382,6 +382,20 @@ impl<R: Read + Seek> ReadDesc<&mut R> for DecoderConfigDescriptor {
             current = reader.stream_position()?;
         }
 
+        let mut dec_specific = dec_specific.unwrap_or_default();
+
+        // For an audio stream a present `DecoderSpecificInfo` is an `AudioSpecificConfig`
+        // whose fields must parse, so a malformed one is a hard error (as it always was);
+        // an absent one leaves the fields at their defaults (also as before). MPEG-4
+        // Visual (`mp4v`, object type `0x20`) reuses this descriptor to carry an opaque
+        // VOL header instead, so skip the audio parse for it.
+        if object_type_indication != MPEG4_VISUAL_OBJECT_TYPE && !dec_specific.raw.is_empty() {
+            let (profile, freq_index, chan_conf) = parse_audio_specific_config(&dec_specific.raw)?;
+            dec_specific.profile = profile;
+            dec_specific.freq_index = freq_index;
+            dec_specific.chan_conf = chan_conf;
+        }
+
         Ok(Self {
             object_type_indication,
             stream_type,
@@ -389,7 +403,7 @@ impl<R: Read + Seek> ReadDesc<&mut R> for DecoderConfigDescriptor {
             buffer_size_db,
             max_bitrate,
             avg_bitrate,
-            dec_specific: dec_specific.unwrap_or_default(),
+            dec_specific,
         })
     }
 }
@@ -399,6 +413,12 @@ pub struct DecoderSpecificDescriptor {
     pub profile: u8,
     pub freq_index: u8,
     pub chan_conf: u8,
+
+    /// Raw `DecoderSpecificInfo` bytes.
+    ///
+    /// For AAC these are the `AudioSpecificConfig` the other fields are parsed from;
+    /// for `mp4v` they are the Video Object Layer header a decoder needs as extradata.
+    pub raw: Vec<u8>,
 }
 
 impl DecoderSpecificDescriptor {
@@ -407,6 +427,7 @@ impl DecoderSpecificDescriptor {
             profile: config.profile as u8,
             freq_index: config.freq_index as u8,
             chan_conf: config.chan_conf as u8,
+            raw: Vec::new(),
         }
     }
 }
@@ -420,6 +441,9 @@ impl Descriptor for DecoderSpecificDescriptor {
         2
     }
 }
+
+/// `objectTypeIndication` for MPEG-4 Visual (`mp4v`) in a `DecoderConfigDescriptor`.
+pub(crate) const MPEG4_VISUAL_OBJECT_TYPE: u8 = 0x20;
 
 fn get_audio_object_type(byte_a: u8, byte_b: u8) -> u8 {
     let mut profile = byte_a >> 3;
@@ -451,25 +475,46 @@ fn get_chan_conf<R: Read + Seek>(
     Ok(chan_conf)
 }
 
-impl<R: Read + Seek> ReadDesc<&mut R> for DecoderSpecificDescriptor {
-    fn read_desc(reader: &mut R, _size: u32) -> Result<Self> {
-        let byte_a = reader.read_u8()?;
-        let byte_b = reader.read_u8()?;
-        let profile = get_audio_object_type(byte_a, byte_b);
-        let (freq_index, chan_conf) = if profile > 31 {
-            let freq_index = (byte_b >> 1) & 0x0F;
-            let chan_conf = get_chan_conf(reader, byte_b, freq_index, true)?;
-            (freq_index, chan_conf)
-        } else {
-            let freq_index = ((byte_a & 0x07) << 1) + (byte_b >> 7);
-            let chan_conf = get_chan_conf(reader, byte_b, freq_index, false)?;
-            (freq_index, chan_conf)
-        };
+/// Parse the AAC fields out of an `AudioSpecificConfig`.
+///
+/// Returns an error on a truncated buffer so the caller can fall back to defaults
+/// for non-AAC payloads (e.g. an `mp4v` VOL header that shares this descriptor).
+fn parse_audio_specific_config(raw: &[u8]) -> Result<(u8, u8, u8)> {
+    let mut reader = std::io::Cursor::new(raw);
+    let byte_a = reader.read_u8()?;
+    let byte_b = reader.read_u8()?;
+    let profile = get_audio_object_type(byte_a, byte_b);
+    let (freq_index, chan_conf) = if profile > 31 {
+        let freq_index = (byte_b >> 1) & 0x0F;
+        let chan_conf = get_chan_conf(&mut reader, byte_b, freq_index, true)?;
+        (freq_index, chan_conf)
+    } else {
+        let freq_index = ((byte_a & 0x07) << 1) + (byte_b >> 7);
+        let chan_conf = get_chan_conf(&mut reader, byte_b, freq_index, false)?;
+        (freq_index, chan_conf)
+    };
+    Ok((profile, freq_index, chan_conf))
+}
 
+impl<R: Read + Seek> ReadDesc<&mut R> for DecoderSpecificDescriptor {
+    fn read_desc(reader: &mut R, size: u32) -> Result<Self> {
+        // `size` is an untrusted descriptor length, so read through a `take` and let
+        // `raw` grow with the bytes that actually arrive rather than pre-allocating
+        // `size` (which a malformed file could inflate to gigabytes).
+        let mut raw = Vec::new();
+        let read = reader.by_ref().take(size as u64).read_to_end(&mut raw)?;
+        if read as u32 != size {
+            return Err(Error::InvalidData("truncated DecoderSpecificInfo"));
+        }
+
+        // The AAC-specific fields (`profile`/`freq_index`/`chan_conf`) are parsed by
+        // the caller once the object type is known — the same descriptor also carries
+        // opaque `mp4v` extradata, for which those fields don't apply.
         Ok(Self {
-            profile,
-            freq_index,
-            chan_conf,
+            profile: 0,
+            freq_index: 0,
+            chan_conf: 0,
+            raw,
         })
     }
 }

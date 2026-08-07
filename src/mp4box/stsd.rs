@@ -4,8 +4,8 @@ use std::io::{Read, Seek};
 
 use crate::mp4box::{
     box_start, read_box_header_ext, skip_bytes_to, Av01Box, Avc1Box, BoxHeader, BoxType, Error,
-    FourCC, HevcBox, Mp4Box, Mp4aBox, ReadBox, Result, TrackKind, Tx3gBox, Vp08Box, Vp09Box,
-    HEADER_EXT_SIZE, HEADER_SIZE,
+    FourCC, HevcBox, Mp4Box, Mp4aBox, Mp4vBox, ReadBox, Result, TrackKind, Tx3gBox, Vp08Box,
+    Vp09Box, HEADER_EXT_SIZE, HEADER_SIZE,
 };
 
 /// Codec dependent contents of the stsd box.
@@ -34,6 +34,12 @@ pub enum StsdBoxContent {
 
     /// VP9 video codec
     Vp09(Vp09Box),
+
+    /// MPEG-4 Part 2 / Visual video codec (`mp4v`)
+    ///
+    /// The decoder configuration (Video Object Layer header) is carried in the
+    /// nested `esds` descriptor rather than a dedicated config box.
+    Mp4v(Mp4vBox),
 
     /// AAC audio codec
     Mp4a(Mp4aBox),
@@ -69,6 +75,8 @@ impl StsdBoxContent {
             Self::Vp08(bx) => Some(bx.vpcc.bit_depth),
 
             Self::Vp09(bx) => Some(bx.vpcc.bit_depth),
+
+            Self::Mp4v(_) => None, // MPEG-4 Part 2 is 8-bit in practice, but not parsed out here.
 
             Self::Mp4a(_) | Self::Tx3g(_) | Self::Unknown(_) => None, // Not applicable
         }
@@ -113,6 +121,18 @@ impl StsdBoxContent {
                 let bit_depth = vpcc.bit_depth;
 
                 format!("vp09.{profile:02}.{level:02}.{bit_depth:02}")
+            }
+
+            Self::Mp4v(Mp4vBox {
+                object_type_indication,
+                ..
+            }) => {
+                // `mp4v.<object-type-indication-hex>`, per RFC 6381 §3.3:
+                // https://datatracker.ietf.org/doc/html/rfc6381#section-3.3
+                // RFC 6381 also allows a `.<profile_and_level>` suffix parsed from the
+                // VOS header, but we omit it: the native decoder does not need it, and
+                // it would not help on web (mp4v has no WebCodecs codec string).
+                format!("mp4v.{object_type_indication:02x}")
             }
 
             Self::Mp4a(_) | Self::Tx3g(_) | Self::Unknown(_) => return None,
@@ -183,7 +203,8 @@ impl StsdBox {
             | StsdBoxContent::Hev1(_)
             | StsdBoxContent::Hvc1(_)
             | StsdBoxContent::Vp08(_)
-            | StsdBoxContent::Vp09(_) => Some(TrackKind::Video),
+            | StsdBoxContent::Vp09(_)
+            | StsdBoxContent::Mp4v(_) => Some(TrackKind::Video),
             StsdBoxContent::Mp4a(_) => Some(TrackKind::Audio),
             StsdBoxContent::Tx3g(_) => Some(TrackKind::Subtitle),
             StsdBoxContent::Unknown(_) => None,
@@ -206,6 +227,7 @@ impl StsdBox {
                 }
                 StsdBoxContent::Vp08(contents) => contents.box_size(),
                 StsdBoxContent::Vp09(contents) => contents.box_size(),
+                StsdBoxContent::Mp4v(contents) => contents.box_size(),
                 StsdBoxContent::Mp4a(contents) => contents.box_size(),
                 StsdBoxContent::Tx3g(contents) => contents.box_size(),
                 StsdBoxContent::Unknown(_) => 0,
@@ -258,6 +280,7 @@ impl<R: Read + Seek> ReadBox<&mut R> for StsdBox {
             BoxType::Hev1Box => StsdBoxContent::Hev1(HevcBox::read_box(reader, s)?),
             BoxType::Vp08Box => StsdBoxContent::Vp08(Vp08Box::read_box(reader, s)?),
             BoxType::Vp09Box => StsdBoxContent::Vp09(Vp09Box::read_box(reader, s)?),
+            BoxType::Mp4vBox => StsdBoxContent::Mp4v(Mp4vBox::read_box(reader, s)?),
             BoxType::Mp4aBox => StsdBoxContent::Mp4a(Mp4aBox::read_box(reader, s)?),
             BoxType::Tx3gBox => StsdBoxContent::Tx3g(Tx3gBox::read_box(reader, s)?),
             _ => StsdBoxContent::Unknown(name.into()),

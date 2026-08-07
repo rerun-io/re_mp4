@@ -523,6 +523,7 @@ impl Track {
             }
             StsdBoxContent::Vp08(content) => Some(content.vpcc.raw.clone()),
             StsdBoxContent::Vp09(content) => Some(content.vpcc.raw.clone()),
+            StsdBoxContent::Mp4v(content) => Some(content.config_raw.clone()),
             StsdBoxContent::Mp4a(_) | StsdBoxContent::Tx3g(_) | StsdBoxContent::Unknown(_) => None,
         }
     }
