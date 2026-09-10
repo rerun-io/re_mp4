@@ -37,38 +37,11 @@ impl TrunBox {
     pub fn get_type() -> BoxType {
         BoxType::TrunBox
     }
-
-    pub fn get_size(&self) -> u64 {
-        let mut sum = HEADER_SIZE + HEADER_EXT_SIZE + 4;
-        if Self::FLAG_DATA_OFFSET & self.flags > 0 {
-            sum += 4;
-        }
-        if Self::FLAG_FIRST_SAMPLE_FLAGS & self.flags > 0 {
-            sum += 4;
-        }
-        if Self::FLAG_SAMPLE_DURATION & self.flags > 0 {
-            sum += 4 * self.sample_count as u64;
-        }
-        if Self::FLAG_SAMPLE_SIZE & self.flags > 0 {
-            sum += 4 * self.sample_count as u64;
-        }
-        if Self::FLAG_SAMPLE_FLAGS & self.flags > 0 {
-            sum += 4 * self.sample_count as u64;
-        }
-        if Self::FLAG_SAMPLE_CTS & self.flags > 0 {
-            sum += 4 * self.sample_count as u64;
-        }
-        sum
-    }
 }
 
 impl Mp4Box for TrunBox {
     fn box_type(&self) -> BoxType {
         Self::get_type()
-    }
-
-    fn box_size(&self) -> u64 {
-        self.get_size()
     }
 
     fn to_json(&self) -> Result<String> {

@@ -3,8 +3,8 @@ use serde::Serialize;
 use std::io::{Read, Seek};
 
 use crate::mp4box::{
-    box_start, read_box_header_ext, skip_bytes, skip_bytes_to, value_u32, AacConfig, BoxHeader,
-    BoxType, Error, FixedPointU16, Mp4Box, ReadBox, Result, HEADER_EXT_SIZE, HEADER_SIZE,
+    box_start, read_box_header_ext, skip_bytes, skip_bytes_to, value_u32, BoxHeader, BoxType,
+    Error, FixedPointU16, Mp4Box, ReadBox, Result,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -31,36 +31,14 @@ impl Default for Mp4aBox {
 }
 
 impl Mp4aBox {
-    pub fn new(config: &AacConfig) -> Self {
-        Self {
-            data_reference_index: 1,
-            channelcount: config.chan_conf as u16,
-            samplesize: 16,
-            samplerate: FixedPointU16::new(config.freq_index.freq() as u16),
-            esds: Some(EsdsBox::new(config)),
-        }
-    }
-
     pub fn get_type() -> BoxType {
         BoxType::Mp4aBox
-    }
-
-    pub fn get_size(&self) -> u64 {
-        let mut size = HEADER_SIZE + 8 + 20;
-        if let Some(ref esds) = self.esds {
-            size += esds.box_size();
-        }
-        size
     }
 }
 
 impl Mp4Box for Mp4aBox {
     fn box_type(&self) -> BoxType {
         Self::get_type()
-    }
-
-    fn box_size(&self) -> u64 {
-        self.get_size()
     }
 
     fn to_json(&self) -> Result<String> {
@@ -145,27 +123,9 @@ pub struct EsdsBox {
     pub es_desc: ESDescriptor,
 }
 
-impl EsdsBox {
-    pub fn new(config: &AacConfig) -> Self {
-        Self {
-            version: 0,
-            flags: 0,
-            es_desc: ESDescriptor::new(config),
-        }
-    }
-}
-
 impl Mp4Box for EsdsBox {
     fn box_type(&self) -> BoxType {
         BoxType::EsdsBox
-    }
-
-    fn box_size(&self) -> u64 {
-        HEADER_SIZE
-            + HEADER_EXT_SIZE
-            + 1
-            + size_of_length(ESDescriptor::desc_size()) as u64
-            + ESDescriptor::desc_size() as u64
     }
 
     fn to_json(&self) -> Result<String> {
@@ -212,12 +172,6 @@ impl<R: Read + Seek> ReadBox<&mut R> for EsdsBox {
     }
 }
 
-#[expect(dead_code)]
-trait Descriptor: Sized {
-    fn desc_tag() -> u8;
-    fn desc_size() -> u32;
-}
-
 trait ReadDesc<T>: Sized {
     fn read_desc(_: T, size: u32) -> Result<Self>;
 }
@@ -237,46 +191,12 @@ fn read_desc<R: Read>(reader: &mut R) -> Result<(u8, u32)> {
     Ok((tag, size))
 }
 
-fn size_of_length(size: u32) -> u32 {
-    match size {
-        0x0..=0x7F => 1,
-        0x80..=0x3FFF => 2,
-        0x4000..=0x1FFFFF => 3,
-        _ => 4,
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
 pub struct ESDescriptor {
     pub es_id: u16,
 
     pub dec_config: DecoderConfigDescriptor,
     pub sl_config: SLConfigDescriptor,
-}
-
-impl ESDescriptor {
-    pub fn new(config: &AacConfig) -> Self {
-        Self {
-            es_id: 1,
-            dec_config: DecoderConfigDescriptor::new(config),
-            sl_config: SLConfigDescriptor::new(),
-        }
-    }
-}
-
-impl Descriptor for ESDescriptor {
-    fn desc_tag() -> u8 {
-        0x03
-    }
-
-    fn desc_size() -> u32 {
-        3 + 1
-            + size_of_length(DecoderConfigDescriptor::desc_size())
-            + DecoderConfigDescriptor::desc_size()
-            + 1
-            + size_of_length(SLConfigDescriptor::desc_size())
-            + SLConfigDescriptor::desc_size()
-    }
 }
 
 impl<R: Read + Seek> ReadDesc<&mut R> for ESDescriptor {
@@ -327,32 +247,6 @@ pub struct DecoderConfigDescriptor {
     pub dec_specific: DecoderSpecificDescriptor,
 }
 
-impl DecoderConfigDescriptor {
-    pub fn new(config: &AacConfig) -> Self {
-        Self {
-            object_type_indication: 0x40, // XXX AAC
-            stream_type: 0x05,            // XXX Audio
-            up_stream: 0,
-            buffer_size_db: 0,
-            max_bitrate: config.bitrate, // XXX
-            avg_bitrate: config.bitrate,
-            dec_specific: DecoderSpecificDescriptor::new(config),
-        }
-    }
-}
-
-impl Descriptor for DecoderConfigDescriptor {
-    fn desc_tag() -> u8 {
-        0x04
-    }
-
-    fn desc_size() -> u32 {
-        13 + 1
-            + size_of_length(DecoderSpecificDescriptor::desc_size())
-            + DecoderSpecificDescriptor::desc_size()
-    }
-}
-
 impl<R: Read + Seek> ReadDesc<&mut R> for DecoderConfigDescriptor {
     fn read_desc(reader: &mut R, size: u32) -> Result<Self> {
         let start = reader.stream_position()?;
@@ -399,26 +293,6 @@ pub struct DecoderSpecificDescriptor {
     pub profile: u8,
     pub freq_index: u8,
     pub chan_conf: u8,
-}
-
-impl DecoderSpecificDescriptor {
-    pub fn new(config: &AacConfig) -> Self {
-        Self {
-            profile: config.profile as u8,
-            freq_index: config.freq_index as u8,
-            chan_conf: config.chan_conf as u8,
-        }
-    }
-}
-
-impl Descriptor for DecoderSpecificDescriptor {
-    fn desc_tag() -> u8 {
-        0x05
-    }
-
-    fn desc_size() -> u32 {
-        2
-    }
 }
 
 fn get_audio_object_type(byte_a: u8, byte_b: u8) -> u8 {
@@ -476,22 +350,6 @@ impl<R: Read + Seek> ReadDesc<&mut R> for DecoderSpecificDescriptor {
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
 pub struct SLConfigDescriptor {}
-
-impl SLConfigDescriptor {
-    pub fn new() -> Self {
-        Self {}
-    }
-}
-
-impl Descriptor for SLConfigDescriptor {
-    fn desc_tag() -> u8 {
-        0x06
-    }
-
-    fn desc_size() -> u32 {
-        1
-    }
-}
 
 impl<R: Read + Seek> ReadDesc<&mut R> for SLConfigDescriptor {
     fn read_desc(reader: &mut R, _size: u32) -> Result<Self> {

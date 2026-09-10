@@ -29,25 +29,11 @@ impl ElstBox {
     pub fn get_type() -> BoxType {
         BoxType::ElstBox
     }
-
-    pub fn get_size(&self) -> u64 {
-        let mut size = HEADER_SIZE + HEADER_EXT_SIZE + 4;
-        if self.version == 1 {
-            size += self.entries.len() as u64 * 20;
-        } else if self.version == 0 {
-            size += self.entries.len() as u64 * 12;
-        }
-        size
-    }
 }
 
 impl Mp4Box for ElstBox {
     fn box_type(&self) -> BoxType {
         Self::get_type()
-    }
-
-    fn box_size(&self) -> u64 {
-        self.get_size()
     }
 
     fn to_json(&self) -> Result<String> {

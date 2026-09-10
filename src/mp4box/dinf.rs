@@ -15,19 +15,11 @@ impl DinfBox {
     pub fn get_type() -> BoxType {
         BoxType::DinfBox
     }
-
-    pub fn get_size(&self) -> u64 {
-        HEADER_SIZE + self.dref.box_size()
-    }
 }
 
 impl Mp4Box for DinfBox {
     fn box_type(&self) -> BoxType {
         Self::get_type()
-    }
-
-    fn box_size(&self) -> u64 {
-        self.get_size()
     }
 
     fn to_json(&self) -> Result<String> {
@@ -104,23 +96,11 @@ impl DrefBox {
     pub fn get_type() -> BoxType {
         BoxType::DrefBox
     }
-
-    pub fn get_size(&self) -> u64 {
-        let mut size = HEADER_SIZE + HEADER_EXT_SIZE + 4;
-        if let Some(ref url) = self.url {
-            size += url.box_size();
-        }
-        size
-    }
 }
 
 impl Mp4Box for DrefBox {
     fn box_type(&self) -> BoxType {
         Self::get_type()
-    }
-
-    fn box_size(&self) -> u64 {
-        self.get_size()
     }
 
     fn to_json(&self) -> Result<String> {
@@ -202,25 +182,11 @@ impl UrlBox {
     pub fn get_type() -> BoxType {
         BoxType::UrlBox
     }
-
-    pub fn get_size(&self) -> u64 {
-        let mut size = HEADER_SIZE + HEADER_EXT_SIZE;
-
-        if !self.location.is_empty() {
-            size += self.location.len() as u64 + 1;
-        }
-
-        size
-    }
 }
 
 impl Mp4Box for UrlBox {
     fn box_type(&self) -> BoxType {
         Self::get_type()
-    }
-
-    fn box_size(&self) -> u64 {
-        self.get_size()
     }
 
     fn to_json(&self) -> Result<String> {

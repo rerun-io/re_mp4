@@ -4,7 +4,7 @@ use std::io::{Read, Seek};
 
 use crate::mp4box::{
     box_start, read_box_header_ext, skip_bytes_to, value_i16, BoxType, FixedPointI8, Mp4Box,
-    ReadBox, Result, HEADER_EXT_SIZE, HEADER_SIZE,
+    ReadBox, Result,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -19,10 +19,6 @@ pub struct SmhdBox {
 impl SmhdBox {
     pub fn get_type() -> BoxType {
         BoxType::SmhdBox
-    }
-
-    pub fn get_size() -> u64 {
-        HEADER_SIZE + HEADER_EXT_SIZE + 4
     }
 }
 
@@ -39,10 +35,6 @@ impl Default for SmhdBox {
 impl Mp4Box for SmhdBox {
     fn box_type(&self) -> BoxType {
         Self::get_type()
-    }
-
-    fn box_size(&self) -> u64 {
-        Self::get_size()
     }
 
     fn to_json(&self) -> Result<String> {

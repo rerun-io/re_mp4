@@ -6,7 +6,7 @@ use crate::mp4box::hdlr::HdlrBox;
 use crate::mp4box::ilst::IlstBox;
 use crate::mp4box::{
     box_start, skip_box, BigEndian, BoxHeader, BoxType, Error, FourCC, Mp4Box, ReadBox,
-    ReadBytesExt as _, Result, SeekFrom, HEADER_EXT_SIZE, HEADER_SIZE,
+    ReadBytesExt as _, Result, SeekFrom, HEADER_SIZE,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -34,35 +34,11 @@ impl MetaBox {
     pub fn get_type() -> BoxType {
         BoxType::MetaBox
     }
-
-    pub fn get_size(&self) -> u64 {
-        let mut size = HEADER_SIZE + HEADER_EXT_SIZE;
-        match self {
-            Self::Mdir { ilst } => {
-                size += HdlrBox::default().box_size();
-                if let Some(ilst) = ilst {
-                    size += ilst.box_size();
-                }
-            }
-            Self::Unknown { hdlr, data } => {
-                size += hdlr.box_size()
-                    + data
-                        .iter()
-                        .map(|(_, data)| data.len() as u64 + HEADER_SIZE)
-                        .sum::<u64>();
-            }
-        }
-        size
-    }
 }
 
 impl Mp4Box for MetaBox {
     fn box_type(&self) -> BoxType {
         Self::get_type()
-    }
-
-    fn box_size(&self) -> u64 {
-        self.get_size()
     }
 
     fn to_json(&self) -> Result<String> {

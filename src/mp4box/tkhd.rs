@@ -4,7 +4,7 @@ use std::io::{Read, Seek};
 
 use crate::mp4box::{
     box_start, read_box_header_ext, skip_bytes_to, value_u32, value_u8, BoxType, Error,
-    FixedPointU16, FixedPointU8, Mp4Box, ReadBox, Result, HEADER_EXT_SIZE, HEADER_SIZE,
+    FixedPointU16, FixedPointU8, Mp4Box, ReadBox, Result,
 };
 
 pub enum TrackFlag {
@@ -99,17 +99,6 @@ impl TkhdBox {
         BoxType::TkhdBox
     }
 
-    pub fn get_size(&self) -> u64 {
-        let mut size = HEADER_SIZE + HEADER_EXT_SIZE;
-        if self.version == 1 {
-            size += 32;
-        } else if self.version == 0 {
-            size += 20;
-        }
-        size += 60;
-        size
-    }
-
     pub fn set_width(&mut self, width: u16) {
         self.width = FixedPointU16::new(width);
     }
@@ -122,10 +111,6 @@ impl TkhdBox {
 impl Mp4Box for TkhdBox {
     fn box_type(&self) -> BoxType {
         Self::get_type()
-    }
-
-    fn box_size(&self) -> u64 {
-        self.get_size()
     }
 
     fn to_json(&self) -> Result<String> {

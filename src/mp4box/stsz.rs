@@ -23,19 +23,11 @@ impl StszBox {
     pub fn get_type() -> BoxType {
         BoxType::StszBox
     }
-
-    pub fn get_size(&self) -> u64 {
-        HEADER_SIZE + HEADER_EXT_SIZE + 8 + (4 * self.sample_sizes.len() as u64)
-    }
 }
 
 impl Mp4Box for StszBox {
     fn box_type(&self) -> BoxType {
         Self::get_type()
-    }
-
-    fn box_size(&self) -> u64 {
-        self.get_size()
     }
 
     fn to_json(&self) -> Result<String> {

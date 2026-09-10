@@ -27,19 +27,11 @@ impl Av01Box {
     pub fn get_type() -> BoxType {
         BoxType::Av01Box
     }
-
-    pub fn get_size(&self) -> u64 {
-        HEADER_SIZE + 8 + 70 + self.av1c.box_size()
-    }
 }
 
 impl Mp4Box for Av01Box {
     fn box_type(&self) -> BoxType {
         Self::get_type()
-    }
-
-    fn box_size(&self) -> u64 {
-        self.get_size()
     }
 
     fn to_json(&self) -> Result<String> {
@@ -118,10 +110,6 @@ pub struct Av1CBox {
 impl Mp4Box for Av1CBox {
     fn box_type(&self) -> BoxType {
         BoxType::Av1CBox
-    }
-
-    fn box_size(&self) -> u64 {
-        4 + self.config_obus.len() as u64
     }
 
     fn to_json(&self) -> Result<String> {

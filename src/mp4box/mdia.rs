@@ -3,7 +3,6 @@ use std::io::{Read, Seek};
 
 use crate::mp4box::{
     box_start, skip_box, skip_bytes_to, BoxHeader, BoxType, Error, Mp4Box, ReadBox, Result,
-    HEADER_SIZE,
 };
 use crate::mp4box::{hdlr::HdlrBox, mdhd::MdhdBox, minf::MinfBox};
 
@@ -18,19 +17,11 @@ impl MdiaBox {
     pub fn get_type() -> BoxType {
         BoxType::MdiaBox
     }
-
-    pub fn get_size(&self) -> u64 {
-        HEADER_SIZE + self.mdhd.box_size() + self.hdlr.box_size() + self.minf.box_size()
-    }
 }
 
 impl Mp4Box for MdiaBox {
     fn box_type(&self) -> BoxType {
         Self::get_type()
-    }
-
-    fn box_size(&self) -> u64 {
-        self.get_size()
     }
 
     fn to_json(&self) -> Result<String> {

@@ -4,7 +4,6 @@ use std::io::{Read, Seek};
 
 use crate::mp4box::{
     box_start, read_box_header_ext, skip_bytes_to, BoxType, Mp4Box, ReadBox, Result,
-    HEADER_EXT_SIZE, HEADER_SIZE,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
@@ -22,19 +21,11 @@ impl TrexBox {
     pub fn get_type() -> BoxType {
         BoxType::TrexBox
     }
-
-    pub fn get_size() -> u64 {
-        HEADER_SIZE + HEADER_EXT_SIZE + 20
-    }
 }
 
 impl Mp4Box for TrexBox {
     fn box_type(&self) -> BoxType {
         Self::get_type()
-    }
-
-    fn box_size(&self) -> u64 {
-        Self::get_size()
     }
 
     fn to_json(&self) -> Result<String> {

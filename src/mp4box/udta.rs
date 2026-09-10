@@ -5,7 +5,6 @@ use serde::Serialize;
 use crate::mp4box::meta::MetaBox;
 use crate::mp4box::{
     box_start, skip_box, skip_bytes_to, BoxHeader, BoxType, Error, Mp4Box, ReadBox, Result,
-    HEADER_SIZE,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
@@ -18,23 +17,11 @@ impl UdtaBox {
     pub fn get_type() -> BoxType {
         BoxType::UdtaBox
     }
-
-    pub fn get_size(&self) -> u64 {
-        let mut size = HEADER_SIZE;
-        if let Some(meta) = &self.meta {
-            size += meta.box_size();
-        }
-        size
-    }
 }
 
 impl Mp4Box for UdtaBox {
     fn box_type(&self) -> BoxType {
         Self::get_type()
-    }
-
-    fn box_size(&self) -> u64 {
-        self.get_size()
     }
 
     fn to_json(&self) -> Result<String> {

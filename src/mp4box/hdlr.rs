@@ -19,19 +19,11 @@ impl HdlrBox {
     pub fn get_type() -> BoxType {
         BoxType::HdlrBox
     }
-
-    pub fn get_size(&self) -> u64 {
-        HEADER_SIZE + HEADER_EXT_SIZE + 20 + self.name.len() as u64 + 1
-    }
 }
 
 impl Mp4Box for HdlrBox {
     fn box_type(&self) -> BoxType {
         Self::get_type()
-    }
-
-    fn box_size(&self) -> u64 {
-        self.get_size()
     }
 
     fn to_json(&self) -> Result<String> {

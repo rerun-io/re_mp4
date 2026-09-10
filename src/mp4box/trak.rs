@@ -4,7 +4,6 @@ use std::io::{Read, Seek};
 use crate::meta::MetaBox;
 use crate::mp4box::{
     box_start, skip_box, skip_bytes_to, BoxHeader, BoxType, Error, Mp4Box, ReadBox, Result,
-    HEADER_SIZE,
 };
 use crate::mp4box::{edts::EdtsBox, mdia::MdiaBox, tkhd::TkhdBox};
 
@@ -25,25 +24,11 @@ impl TrakBox {
     pub fn get_type() -> BoxType {
         BoxType::TrakBox
     }
-
-    pub fn get_size(&self) -> u64 {
-        let mut size = HEADER_SIZE;
-        size += self.tkhd.box_size();
-        if let Some(ref edts) = self.edts {
-            size += edts.box_size();
-        }
-        size += self.mdia.box_size();
-        size
-    }
 }
 
 impl Mp4Box for TrakBox {
     fn box_type(&self) -> BoxType {
         Self::get_type()
-    }
-
-    fn box_size(&self) -> u64 {
-        self.get_size()
     }
 
     fn to_json(&self) -> Result<String> {

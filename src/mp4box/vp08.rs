@@ -30,10 +30,6 @@ impl Mp4Box for Vp08Box {
         BoxType::Vp08Box
     }
 
-    fn box_size(&self) -> u64 {
-        0x6A
-    }
-
     fn to_json(&self) -> Result<String> {
         Ok(serde_json::to_string(&self).expect("Failed to convert to JSON"))
     }
