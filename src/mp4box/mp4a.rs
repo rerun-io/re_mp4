@@ -7,6 +7,10 @@ use crate::mp4box::{
     BoxType, Error, FixedPointU16, Mp4Box, ReadBox, Result, HEADER_EXT_SIZE, HEADER_SIZE,
 };
 
+/// Size of a QTFF `SoundDescriptionV2` struct, including the box header,
+/// up to and including `numAudioChannels`.
+const SOUND_DESCRIPTION_V2_MIN_SIZE: u64 = HEADER_SIZE + 28 + 4 + 8 + 4;
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Mp4aBox {
     pub data_reference_index: u16,
@@ -88,20 +92,51 @@ impl<R: Read + Seek> ReadBox<&mut R> for Mp4aBox {
         let version = reader.read_u16::<BigEndian>()?;
         reader.read_u16::<BigEndian>()?; // reserved
         reader.read_u32::<BigEndian>()?; // reserved
-        let channelcount = reader.read_u16::<BigEndian>()?;
+        let mut channelcount = reader.read_u16::<BigEndian>()?;
         let samplesize = reader.read_u16::<BigEndian>()?;
         reader.read_u32::<BigEndian>()?; // pre-defined, reserved
-        let samplerate = FixedPointU16::new_raw(reader.read_u32::<BigEndian>()?);
+        let mut samplerate = FixedPointU16::new_raw(reader.read_u32::<BigEndian>()?);
 
-        if version == 1 {
-            // Skip QTFF
-            reader.read_u64::<BigEndian>()?;
-            reader.read_u64::<BigEndian>()?;
+        let end = start + size;
+
+        match version {
+            1 => {
+                // QTFF SoundDescriptionV1: skip samplesPerPacket, bytesPerPacket,
+                // bytesPerFrame, bytesPerSample.
+                reader.read_u64::<BigEndian>()?;
+                reader.read_u64::<BigEndian>()?;
+            }
+            2 => {
+                // QTFF SoundDescriptionV2. The v0 fields above hold placeholder values
+                // (3 channels, 16 bit, 65536.0 Hz), and the real values follow.
+                // Child atoms start `size_of_struct_only` bytes after the atom start.
+                let size_of_struct_only = reader.read_u32::<BigEndian>()? as u64;
+                let audio_sample_rate = reader.read_f64::<BigEndian>()?;
+                let num_audio_channels = reader.read_u32::<BigEndian>()?;
+                // Remaining v2 fields (always7F000000, constBitsPerChannel, formatSpecificFlags,
+                // constBytesPerAudioPacket, constLPCMFramesPerAudioPacket) are skipped below.
+
+                if size_of_struct_only < SOUND_DESCRIPTION_V2_MIN_SIZE
+                    || end < start + size_of_struct_only
+                {
+                    return Err(Error::InvalidData(
+                        "mp4a version 2 sample entry has an invalid sizeOfStructOnly",
+                    ));
+                }
+
+                channelcount = u16::try_from(num_audio_channels).unwrap_or(u16::MAX);
+                if audio_sample_rate.is_finite() && 0.0 <= audio_sample_rate {
+                    // Saturates on overflow, i.e. for sample rates over 65535 Hz
+                    samplerate = FixedPointU16::new_raw((audio_sample_rate * 65536.0) as u32);
+                }
+
+                skip_bytes_to(reader, start + size_of_struct_only)?;
+            }
+            _ => {}
         }
 
         // Find esds in mp4a or wave
         let mut esds = None;
-        let end = start + size;
         loop {
             let current = reader.stream_position()?;
             if current >= end {
@@ -114,11 +149,17 @@ impl<R: Read + Seek> ReadBox<&mut R> for Mp4aBox {
                     "mp4a box contains a box with a larger size than it",
                 ));
             }
+            if s < HEADER_SIZE {
+                // Malformed (or a zero-size "extends to end" box), which we cannot make
+                // progress on. Bail out and use whatever we have found so far.
+                break;
+            }
             if name == BoxType::EsdsBox {
                 esds = Some(EsdsBox::read_box(reader, s)?);
                 break;
             } else if name == BoxType::WaveBox {
-                // Typically contains frma, mp4a, esds, and a terminator atom
+                // Typically contains frma, mp4a, esds, and a terminator atom.
+                // We don't skip it, so the next loop iterations will walk into its children.
             } else {
                 // Skip boxes
                 let skip_to = current + s;
@@ -498,5 +539,126 @@ impl<R: Read + Seek> ReadDesc<&mut R> for SLConfigDescriptor {
         reader.read_u8()?; // pre-defined
 
         Ok(Self {})
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    fn boxed(name: &[u8; 4], payload: &[u8]) -> Vec<u8> {
+        let mut out = ((payload.len() + 8) as u32).to_be_bytes().to_vec();
+        out.extend_from_slice(name);
+        out.extend_from_slice(payload);
+        out
+    }
+
+    /// AAC-LC, 48 kHz, stereo.
+    fn esds() -> Vec<u8> {
+        let mut payload = vec![0, 0, 0, 0]; // version + flags
+        payload.extend_from_slice(&[0x03, 0x19, 0x00, 0x01, 0x00]); // ES_Descriptor
+        payload.extend_from_slice(&[0x04, 0x11, 0x40, 0x15]); // DecoderConfigDescriptor
+        payload.extend_from_slice(&[0, 0, 0]); // buffer_size_db
+        payload.extend_from_slice(&[0, 0, 0, 0]); // max_bitrate
+        payload.extend_from_slice(&[0, 0, 0, 0]); // avg_bitrate
+        payload.extend_from_slice(&[0x05, 0x02, 0x11, 0x90]); // DecoderSpecificDescriptor
+        payload.extend_from_slice(&[0x06, 0x01, 0x02]); // SLConfigDescriptor
+        boxed(b"esds", &payload)
+    }
+
+    /// The `QuickTime` `wave` atom: `frma`, `mp4a`, `esds`, and a terminator atom.
+    fn wave() -> Vec<u8> {
+        let mut payload = boxed(b"frma", b"mp4a");
+        payload.extend(boxed(b"mp4a", &[0, 0, 0, 0]));
+        payload.extend(esds());
+        payload.extend_from_slice(&[0, 0, 0, 8, 0, 0, 0, 0]);
+        boxed(b"wave", &payload)
+    }
+
+    /// The fields shared by all versions of the QTFF sound description.
+    fn v0_fields(version: u16, channels: u16, samplerate: u32) -> Vec<u8> {
+        let mut out = vec![0, 0, 0, 0, 0, 0]; // reserved
+        out.extend_from_slice(&1u16.to_be_bytes()); // data_reference_index
+        out.extend_from_slice(&version.to_be_bytes());
+        out.extend_from_slice(&[0, 0, 0, 0, 0, 0]); // revision, vendor
+        out.extend_from_slice(&channels.to_be_bytes());
+        out.extend_from_slice(&16u16.to_be_bytes()); // samplesize
+        out.extend_from_slice(&[0, 0, 0, 0]); // compression_id, packet_size
+        out.extend_from_slice(&samplerate.to_be_bytes());
+        out
+    }
+
+    fn parse(mp4a: &[u8]) -> Result<Mp4aBox> {
+        let mut reader = Cursor::new(mp4a);
+        let header = BoxHeader::read(&mut reader)?;
+        Mp4aBox::read_box(&mut reader, header.size)
+    }
+
+    fn assert_aac_lc_48k_stereo(mp4a: &Mp4aBox) {
+        assert_eq!(mp4a.data_reference_index, 1);
+        assert_eq!(mp4a.channelcount, 2);
+        assert_eq!(mp4a.samplesize, 16);
+        assert_eq!(mp4a.samplerate.value(), 48000);
+        let esds = mp4a.esds.as_ref().expect("esds not found");
+        assert_eq!(esds.es_desc.dec_config.object_type_indication, 0x40);
+        assert_eq!(esds.es_desc.dec_config.dec_specific.profile, 2);
+        assert_eq!(esds.es_desc.dec_config.dec_specific.freq_index, 3);
+        assert_eq!(esds.es_desc.dec_config.dec_specific.chan_conf, 2);
+    }
+
+    #[test]
+    fn version_0() {
+        let mut payload = v0_fields(0, 2, 48000 << 16);
+        payload.extend(esds());
+        let mp4a = parse(&boxed(b"mp4a", &payload)).expect("parse failed");
+        assert_aac_lc_48k_stereo(&mp4a);
+    }
+
+    #[test]
+    fn version_1_with_wave() {
+        let mut payload = v0_fields(1, 2, 48000 << 16);
+        payload.extend_from_slice(&[0; 16]); // samples_per_packet, bytes_per_packet, bytes_per_frame, bytes_per_sample
+        payload.extend(wave());
+        let mp4a = parse(&boxed(b"mp4a", &payload)).expect("parse failed");
+        assert_aac_lc_48k_stereo(&mp4a);
+    }
+
+    #[test]
+    fn version_2_with_wave() {
+        let mut payload = v0_fields(2, 3, 0x0001_0000);
+        payload.extend_from_slice(&72u32.to_be_bytes()); // size_of_struct_only
+        payload.extend_from_slice(&48000.0f64.to_be_bytes()); // audio_sample_rate
+        payload.extend_from_slice(&2u32.to_be_bytes()); // num_audio_channels
+        payload.extend_from_slice(&0x7F00_0000u32.to_be_bytes()); // always_7f000000
+        payload.extend_from_slice(&0u32.to_be_bytes()); // const_bits_per_channel
+        payload.extend_from_slice(&0u32.to_be_bytes()); // format_specific_flags
+        payload.extend_from_slice(&0u32.to_be_bytes()); // const_bytes_per_audio_packet
+        payload.extend_from_slice(&1024u32.to_be_bytes()); // const_lpcm_frames_per_audio_packet
+        assert_eq!(payload.len() + 8, 72);
+        payload.extend(wave());
+        let mp4a = parse(&boxed(b"mp4a", &payload)).expect("parse failed");
+        assert_aac_lc_48k_stereo(&mp4a);
+    }
+
+    #[test]
+    fn version_2_with_too_small_size_of_struct_only() {
+        let mut payload = v0_fields(2, 3, 0x0001_0000);
+        payload.extend_from_slice(&8u32.to_be_bytes()); // size_of_struct_only
+        payload.extend_from_slice(&48000.0f64.to_be_bytes());
+        payload.extend_from_slice(&2u32.to_be_bytes());
+        payload.extend_from_slice(&[0; 20]);
+        payload.extend(esds());
+        let err = parse(&boxed(b"mp4a", &payload));
+        assert!(matches!(err, Err(Error::InvalidData(_))));
+    }
+
+    #[test]
+    fn zero_size_child_does_not_hang() {
+        let mut payload = v0_fields(0, 2, 48000 << 16);
+        payload.extend_from_slice(&[0, 0, 0, 0, b'f', b'r', b'e', b'e']);
+        payload.extend_from_slice(&[0; 8]);
+        let mp4a = parse(&boxed(b"mp4a", &payload)).expect("parse failed");
+        assert!(mp4a.esds.is_none());
     }
 }
