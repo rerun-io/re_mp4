@@ -338,6 +338,10 @@ pub fn skip_bytes_to<S: Seek>(seeker: &mut S, pos: u64) -> Result<()> {
 }
 
 pub fn skip_box<S: Seek>(seeker: &mut S, size: u64) -> Result<()> {
+    if size < HEADER_SIZE {
+        // Seeking backwards here would make the calling loop spin forever.
+        return Err(Error::InvalidData("box size is smaller than its header"));
+    }
     let start = box_start(seeker)?;
     skip_bytes_to(seeker, start + size)?;
     Ok(())
