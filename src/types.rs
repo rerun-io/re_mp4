@@ -6,7 +6,6 @@ use std::fmt;
 use crate::mp4box::BoxType;
 use crate::{Error, Result};
 
-pub use bytes::Bytes;
 pub use num_rational::Ratio;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -571,103 +570,6 @@ impl fmt::Display for ChannelConfig {
             Self::SevenOne => "seven.one",
         };
         write!(f, "{s}")
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Default)]
-pub struct AvcConfig {
-    pub width: u16,
-    pub height: u16,
-    pub seq_param_set: Vec<u8>,
-    pub pic_param_set: Vec<u8>,
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Default)]
-pub struct HevcConfig {
-    pub width: u16,
-    pub height: u16,
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Default)]
-pub struct Vp9Config {
-    pub width: u16,
-    pub height: u16,
-}
-
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub struct AacConfig {
-    pub bitrate: u32,
-    pub profile: AudioObjectType,
-    pub freq_index: SampleFreqIndex,
-    pub chan_conf: ChannelConfig,
-}
-
-impl Default for AacConfig {
-    fn default() -> Self {
-        Self {
-            bitrate: 0,
-            profile: AudioObjectType::AacLowComplexity,
-            freq_index: SampleFreqIndex::Freq48000,
-            chan_conf: ChannelConfig::Stereo,
-        }
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Default)]
-pub struct TtxtConfig {}
-
-#[expect(
-    clippy::enum_variant_names,
-    reason = "Variant names match wrapped config types"
-)]
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub enum MediaConfig {
-    AvcConfig(AvcConfig),
-    HevcConfig(HevcConfig),
-    Vp9Config(Vp9Config),
-    AacConfig(AacConfig),
-    TtxtConfig(TtxtConfig),
-}
-
-#[derive(Debug)]
-pub struct Mp4Sample {
-    pub start_time: u64,
-    pub duration: u32,
-    pub rendering_offset: i32,
-    pub is_sync: bool,
-    pub bytes: Bytes,
-}
-
-impl PartialEq for Mp4Sample {
-    fn eq(&self, other: &Self) -> bool {
-        self.start_time == other.start_time
-            && self.duration == other.duration
-            && self.rendering_offset == other.rendering_offset
-            && self.is_sync == other.is_sync
-            && self.bytes.len() == other.bytes.len() // XXX for easy check
-    }
-}
-
-impl fmt::Display for Mp4Sample {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "start_time {}, duration {}, rendering_offset {}, is_sync {}, length {}",
-            self.start_time,
-            self.duration,
-            self.rendering_offset,
-            self.is_sync,
-            self.bytes.len()
-        )
-    }
-}
-
-pub fn creation_time(creation_time: u64) -> u64 {
-    // convert from MP4 epoch (1904-01-01) to Unix epoch (1970-01-01)
-    if creation_time >= 2082844800 {
-        creation_time - 2082844800
-    } else {
-        creation_time
     }
 }
 
