@@ -89,6 +89,8 @@ impl<R: Read + Seek> ReadBox<&mut R> for Mp4aBox {
             if reader.stream_position()? + 8 + 4 <= struct_end {
                 let rate = f64::from_bits(reader.read_u64::<BigEndian>()?);
                 let channels = reader.read_u32::<BigEndian>()?;
+                // V2 uses u32 channels + f64 rate; Mp4aBox keeps the ISO u16
+                // fields. Saturate / leave ISO values when out of u16 range.
                 channelcount = u16::try_from(channels).unwrap_or(u16::MAX);
                 if rate.is_finite() && rate > 0.0 && rate <= f64::from(u16::MAX) {
                     samplerate = FixedPointU16::new(rate as u16);
@@ -123,6 +125,11 @@ impl<R: Read + Seek> ReadBox<&mut R> for Mp4aBox {
                     "mp4a box contains a box with a larger size than it",
                 ));
             }
+            // size < HEADER_SIZE (incl. 0) would make skip_bytes_to seek
+            // backwards and hang the child / wave loops.
+            if s < HEADER_SIZE {
+                return Err(Error::InvalidData("mp4a child box too small"));
+            }
             if name == BoxType::EsdsBox {
                 esds = Some(EsdsBox::read_box(reader, s)?);
                 break;
@@ -132,9 +139,9 @@ impl<R: Read + Seek> ReadBox<&mut R> for Mp4aBox {
                 while reader.stream_position()? < wave_end {
                     let inner_pos = reader.stream_position()?;
                     let inner = BoxHeader::read(reader)?;
-                    if inner.size > s {
+                    if inner.size < HEADER_SIZE || inner.size > s {
                         return Err(Error::InvalidData(
-                            "wave box contains a box with a larger size than it",
+                            "wave box contains a box with an invalid size",
                         ));
                     }
                     if inner.name == BoxType::EsdsBox {
