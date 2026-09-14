@@ -5,7 +5,6 @@ use std::io::{Read, Seek};
 
 use crate::mp4box::{
     box_start, read_box_header_ext, skip_bytes_to, BoxType, Error, Mp4Box, ReadBox, Result,
-    HEADER_EXT_SIZE, HEADER_SIZE,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -22,18 +21,6 @@ pub struct MdhdBox {
 impl MdhdBox {
     pub fn get_type() -> BoxType {
         BoxType::MdhdBox
-    }
-
-    pub fn get_size(&self) -> u64 {
-        let mut size = HEADER_SIZE + HEADER_EXT_SIZE;
-
-        if self.version == 1 {
-            size += 28;
-        } else if self.version == 0 {
-            size += 16;
-        }
-        size += 4;
-        size
     }
 }
 
@@ -54,10 +41,6 @@ impl Default for MdhdBox {
 impl Mp4Box for MdhdBox {
     fn box_type(&self) -> BoxType {
         Self::get_type()
-    }
-
-    fn box_size(&self) -> u64 {
-        self.get_size()
     }
 
     fn to_json(&self) -> Result<String> {

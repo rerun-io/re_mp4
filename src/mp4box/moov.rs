@@ -4,7 +4,6 @@ use std::io::{Read, Seek};
 use crate::meta::MetaBox;
 use crate::mp4box::{
     box_start, skip_box, skip_bytes_to, BoxHeader, BoxType, Error, Mp4Box, ReadBox, Result,
-    HEADER_SIZE,
 };
 use crate::mp4box::{mvex::MvexBox, mvhd::MvhdBox, trak::TrakBox, udta::UdtaBox};
 
@@ -29,29 +28,11 @@ impl MoovBox {
     pub fn get_type() -> BoxType {
         BoxType::MoovBox
     }
-
-    pub fn get_size(&self) -> u64 {
-        let mut size = HEADER_SIZE + self.mvhd.box_size();
-        for trak in &self.traks {
-            size += trak.box_size();
-        }
-        if let Some(meta) = &self.meta {
-            size += meta.box_size();
-        }
-        if let Some(udta) = &self.udta {
-            size += udta.box_size();
-        }
-        size
-    }
 }
 
 impl Mp4Box for MoovBox {
     fn box_type(&self) -> BoxType {
         Self::get_type()
-    }
-
-    fn box_size(&self) -> u64 {
-        self.get_size()
     }
 
     fn to_json(&self) -> Result<String> {

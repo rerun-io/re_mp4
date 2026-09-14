@@ -4,7 +4,6 @@ use std::io::{Read, Seek};
 
 use crate::mp4box::{
     box_start, read_box_header_ext, skip_bytes_to, BoxType, Mp4Box, ReadBox, Result,
-    HEADER_EXT_SIZE, HEADER_SIZE,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Default)]
@@ -31,35 +30,11 @@ impl TfhdBox {
     pub fn get_type() -> BoxType {
         BoxType::TfhdBox
     }
-
-    pub fn get_size(&self) -> u64 {
-        let mut sum = HEADER_SIZE + HEADER_EXT_SIZE + 4;
-        if Self::FLAG_BASE_DATA_OFFSET & self.flags > 0 {
-            sum += 8;
-        }
-        if Self::FLAG_SAMPLE_DESCRIPTION_INDEX & self.flags > 0 {
-            sum += 4;
-        }
-        if Self::FLAG_DEFAULT_SAMPLE_DURATION & self.flags > 0 {
-            sum += 4;
-        }
-        if Self::FLAG_DEFAULT_SAMPLE_SIZE & self.flags > 0 {
-            sum += 4;
-        }
-        if Self::FLAG_DEFAULT_SAMPLE_FLAGS & self.flags > 0 {
-            sum += 4;
-        }
-        sum
-    }
 }
 
 impl Mp4Box for TfhdBox {
     fn box_type(&self) -> BoxType {
         Self::get_type()
-    }
-
-    fn box_size(&self) -> u64 {
-        self.get_size()
     }
 
     fn to_json(&self) -> Result<String> {

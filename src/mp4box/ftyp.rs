@@ -2,9 +2,7 @@ use byteorder::{BigEndian, ReadBytesExt as _};
 use serde::Serialize;
 use std::io::{Read, Seek};
 
-use crate::mp4box::{
-    box_start, skip_bytes_to, BoxType, Error, FourCC, Mp4Box, ReadBox, Result, HEADER_SIZE,
-};
+use crate::mp4box::{box_start, skip_bytes_to, BoxType, Error, FourCC, Mp4Box, ReadBox, Result};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
 pub struct FtypBox {
@@ -17,19 +15,11 @@ impl FtypBox {
     pub fn get_type() -> BoxType {
         BoxType::FtypBox
     }
-
-    pub fn get_size(&self) -> u64 {
-        HEADER_SIZE + 8 + (4 * self.compatible_brands.len() as u64)
-    }
 }
 
 impl Mp4Box for FtypBox {
     fn box_type(&self) -> BoxType {
         Self::get_type()
-    }
-
-    fn box_size(&self) -> u64 {
-        self.get_size()
     }
 
     fn to_json(&self) -> Result<String> {

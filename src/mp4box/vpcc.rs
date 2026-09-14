@@ -1,6 +1,6 @@
 use crate::mp4box::{
     box_start, read_box_header_ext, skip_bytes_to, BigEndian, BoxType, Read, ReadBox,
-    ReadBytesExt as _, Result, Seek, HEADER_EXT_SIZE, HEADER_SIZE,
+    ReadBytesExt as _, Result, Seek,
 };
 use crate::Mp4Box;
 use serde::Serialize;
@@ -28,10 +28,6 @@ impl VpccBox {
 impl Mp4Box for VpccBox {
     fn box_type(&self) -> BoxType {
         BoxType::VpccBox
-    }
-
-    fn box_size(&self) -> u64 {
-        HEADER_SIZE + HEADER_EXT_SIZE + 8
     }
 
     fn to_json(&self) -> Result<String> {

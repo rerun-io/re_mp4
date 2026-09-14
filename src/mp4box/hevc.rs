@@ -4,7 +4,7 @@ use std::io::{Read, Seek};
 
 use crate::mp4box::{
     box_start, skip_bytes, skip_bytes_to, value_u32, BoxHeader, BoxType, Error, FixedPointU16,
-    Mp4Box, RawBox, ReadBox, Result, HEADER_SIZE,
+    Mp4Box, RawBox, ReadBox, Result,
 };
 
 /// HEVC/H.265 box found for both `avc1` and `hvc1`.
@@ -43,19 +43,11 @@ impl HevcBox {
     pub fn get_type() -> BoxType {
         BoxType::Hvc1Box
     }
-
-    pub fn get_size(&self) -> u64 {
-        HEADER_SIZE + 8 + 70 + self.hvcc.box_size()
-    }
 }
 
 impl Mp4Box for HevcBox {
     fn box_type(&self) -> BoxType {
         Self::get_type()
-    }
-
-    fn box_size(&self) -> u64 {
-        self.get_size()
     }
 
     fn to_json(&self) -> Result<String> {
@@ -146,28 +138,9 @@ pub struct HevcDecoderConfigurationRecord {
     pub arrays: Vec<HvcCArray>,
 }
 
-impl HevcDecoderConfigurationRecord {
-    pub fn new() -> Self {
-        Self {
-            configuration_version: 1,
-            ..Default::default()
-        }
-    }
-}
-
 impl Mp4Box for HevcDecoderConfigurationRecord {
     fn box_type(&self) -> BoxType {
         BoxType::HvcCBox
-    }
-
-    fn box_size(&self) -> u64 {
-        HEADER_SIZE
-            + 23
-            + self
-                .arrays
-                .iter()
-                .map(|a| 3 + a.nalus.iter().map(|x| 2 + x.data.len() as u64).sum::<u64>())
-                .sum::<u64>()
     }
 
     fn to_json(&self) -> Result<String> {

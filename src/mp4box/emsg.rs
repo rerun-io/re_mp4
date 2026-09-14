@@ -46,11 +46,6 @@ impl Mp4Box for EmsgBox {
         BoxType::EmsgBox
     }
 
-    fn box_size(&self) -> u64 {
-        Self::size_without_message(self.version, &self.scheme_id_uri, &self.value)
-            + self.message_data.len() as u64
-    }
-
     fn to_json(&self) -> Result<String> {
         Ok(serde_json::to_string(&self).expect("Failed to convert to JSON"))
     }

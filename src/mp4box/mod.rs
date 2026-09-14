@@ -61,8 +61,8 @@ use std::convert::TryInto as _;
 use std::io::{Read, Seek, SeekFrom};
 
 use crate::{
-    AacConfig, DataType, Error, FixedPointI8, FixedPointU16, FixedPointU8, FourCC, Metadata,
-    MetadataKey, Result, TrackKind,
+    DataType, Error, FixedPointI8, FixedPointU16, FixedPointU8, FourCC, Metadata, MetadataKey,
+    Result, TrackKind,
 };
 
 pub(crate) mod av01;
@@ -256,7 +256,6 @@ boxtype! {
 
 pub trait Mp4Box: Sized {
     fn box_type(&self) -> BoxType;
-    fn box_size(&self) -> u64;
     fn to_json(&self) -> Result<String>;
     fn summary(&self) -> Result<String>;
 }

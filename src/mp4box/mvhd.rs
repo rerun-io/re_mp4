@@ -4,7 +4,7 @@ use std::io::{Read, Seek};
 
 use crate::mp4box::{
     box_start, read_box_header_ext, skip_bytes, skip_bytes_to, tkhd, value_u32, value_u8, BoxType,
-    Error, FixedPointU16, FixedPointU8, Mp4Box, ReadBox, Result, HEADER_EXT_SIZE, HEADER_SIZE,
+    Error, FixedPointU16, FixedPointU8, Mp4Box, ReadBox, Result,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -30,17 +30,6 @@ impl MvhdBox {
     pub fn get_type() -> BoxType {
         BoxType::MvhdBox
     }
-
-    pub fn get_size(&self) -> u64 {
-        let mut size = HEADER_SIZE + HEADER_EXT_SIZE;
-        if self.version == 1 {
-            size += 28;
-        } else if self.version == 0 {
-            size += 16;
-        }
-        size += 80;
-        size
-    }
 }
 
 impl Default for MvhdBox {
@@ -63,10 +52,6 @@ impl Default for MvhdBox {
 impl Mp4Box for MvhdBox {
     fn box_type(&self) -> BoxType {
         Self::get_type()
-    }
-
-    fn box_size(&self) -> u64 {
-        self.get_size()
     }
 
     fn to_json(&self) -> Result<String> {

@@ -3,7 +3,6 @@ use std::io::{Read, Seek};
 
 use crate::mp4box::{
     box_start, skip_box, skip_bytes_to, BoxHeader, BoxType, Error, Mp4Box, ReadBox, Result,
-    HEADER_SIZE,
 };
 use crate::mp4box::{mfhd::MfhdBox, traf::TrafBox};
 
@@ -22,23 +21,11 @@ impl MoofBox {
     pub fn get_type() -> BoxType {
         BoxType::MoofBox
     }
-
-    pub fn get_size(&self) -> u64 {
-        let mut size = HEADER_SIZE + self.mfhd.box_size();
-        for traf in &self.trafs {
-            size += traf.box_size();
-        }
-        size
-    }
 }
 
 impl Mp4Box for MoofBox {
     fn box_type(&self) -> BoxType {
         Self::get_type()
-    }
-
-    fn box_size(&self) -> u64 {
-        self.get_size()
     }
 
     fn to_json(&self) -> Result<String> {

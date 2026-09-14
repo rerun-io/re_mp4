@@ -5,7 +5,6 @@ use std::io::{Read, Seek};
 use crate::mp4box::{
     box_start, read_box_header_ext, skip_bytes_to, Av01Box, Avc1Box, BoxHeader, BoxType, Error,
     FourCC, HevcBox, Mp4Box, Mp4aBox, ReadBox, Result, TrackKind, Tx3gBox, Vp08Box, Vp09Box,
-    HEADER_EXT_SIZE, HEADER_SIZE,
 };
 
 /// Codec dependent contents of the stsd box.
@@ -193,33 +192,11 @@ impl StsdBox {
     pub fn get_type() -> BoxType {
         BoxType::StsdBox
     }
-
-    pub fn get_size(&self) -> u64 {
-        HEADER_SIZE
-            + HEADER_EXT_SIZE
-            + 4
-            + match &self.contents {
-                StsdBoxContent::Av01(contents) => contents.box_size(),
-                StsdBoxContent::Avc1(contents) => contents.box_size(),
-                StsdBoxContent::Hev1(contents) | StsdBoxContent::Hvc1(contents) => {
-                    contents.box_size()
-                }
-                StsdBoxContent::Vp08(contents) => contents.box_size(),
-                StsdBoxContent::Vp09(contents) => contents.box_size(),
-                StsdBoxContent::Mp4a(contents) => contents.box_size(),
-                StsdBoxContent::Tx3g(contents) => contents.box_size(),
-                StsdBoxContent::Unknown(_) => 0,
-            }
-    }
 }
 
 impl Mp4Box for StsdBox {
     fn box_type(&self) -> BoxType {
         Self::get_type()
-    }
-
-    fn box_size(&self) -> u64 {
-        self.get_size()
     }
 
     fn to_json(&self) -> Result<String> {

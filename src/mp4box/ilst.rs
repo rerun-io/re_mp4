@@ -8,7 +8,7 @@ use serde::Serialize;
 use crate::mp4box::data::DataBox;
 use crate::mp4box::{
     box_start, skip_box, skip_bytes_to, BigEndian, BoxHeader, BoxType, DataType, Error, Metadata,
-    MetadataKey, Mp4Box, ReadBox, Result, HEADER_SIZE,
+    MetadataKey, Mp4Box, ReadBox, Result,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
@@ -20,19 +20,11 @@ impl IlstBox {
     pub fn get_type() -> BoxType {
         BoxType::IlstBox
     }
-
-    pub fn get_size(&self) -> u64 {
-        HEADER_SIZE + self.items.values().map(|item| item.get_size()).sum::<u64>()
-    }
 }
 
 impl Mp4Box for IlstBox {
     fn box_type(&self) -> BoxType {
         Self::get_type()
-    }
-
-    fn box_size(&self) -> u64 {
-        self.get_size()
     }
 
     fn to_json(&self) -> Result<String> {
@@ -94,12 +86,6 @@ impl<R: Read + Seek> ReadBox<&mut R> for IlstBox {
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
 pub struct IlstItemBox {
     pub data: DataBox,
-}
-
-impl IlstItemBox {
-    fn get_size(&self) -> u64 {
-        HEADER_SIZE + self.data.box_size()
-    }
 }
 
 impl<R: Read + Seek> ReadBox<&mut R> for IlstItemBox {
