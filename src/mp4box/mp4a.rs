@@ -4,7 +4,7 @@ use std::io::{Read, Seek};
 
 use crate::mp4box::{
     box_start, read_box_header_ext, skip_bytes, skip_bytes_to, value_u32, BoxHeader, BoxType,
-    Error, FixedPointU16, Mp4Box, ReadBox, Result,
+    Error, FixedPointU16, Mp4Box, ReadBox, Result, HEADER_SIZE,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
