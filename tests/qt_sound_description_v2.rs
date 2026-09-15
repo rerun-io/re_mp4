@@ -1,14 +1,14 @@
-//! Regression for QuickTime Sound Description version 2 (`mp4a`).
+//! Regression for `QuickTime` Sound Description version 2 (`mp4a`).
 //!
 //! Full source movie (not checked in — too large):
-//! https://download.blender.org/peach/bigbuckbunny_movies/big_buck_bunny_1080p_h264.mov.zip
+//! <https://download.blender.org/peach/bigbuckbunny_movies/big_buck_bunny_1080p_h264.mov.zip>
 //!
 //! `MP4A_SOUND_DESC_V2` is the AAC `mp4a` sample-entry atom from that file
 //! (`version == 2`, nested `wave`/`esds`).
 
-use std::io::{Cursor, Seek, SeekFrom};
+use std::io::{Cursor, Seek as _, SeekFrom};
 
-use re_mp4::{Mp4aBox, ReadBox};
+use re_mp4::{Mp4aBox, ReadBox as _};
 
 /// `mp4a` atom from Blender Big Buck Bunny 1080p H.264 `.mov` (audio track).
 const MP4A_SOUND_DESC_V2: &[u8] = &[

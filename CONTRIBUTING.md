@@ -51,3 +51,15 @@ If you use an agent to implement a solution, then you should be able to understa
 Asking the agent to walk you through the code can help, but doesn't replace reading it yourself.
 LLMs make it easy to produce code quickly, while understanding takes longer.
 Please disclose the level of confidence that you have in your solution.
+
+**Before every commit / PR push**, run the same gates CI runs (on a tree merged/rebased onto current `main`):
+
+```sh
+cargo fmt --all -- --check
+cargo check --all-features --all-targets
+cargo clippy --all-targets --all-features -- -D warnings
+cargo check --target wasm32-unknown-unknown --all-features
+cargo test --all-features
+```
+
+Do not open or update a PR until these pass locally. `cargo check` alone is not enough — Clippy (`-D warnings`) is a hard CI failure.
