@@ -4,7 +4,7 @@ use std::io::{Read, Seek};
 
 use crate::mp4box::{
     box_start, read_box_header_ext, skip_bytes, skip_bytes_to, value_u32, BoxHeader, BoxType,
-    Error, FixedPointU16, Mp4Box, ReadBox, Result,
+    Error, FixedPointU16, Mp4Box, ReadBox, Result, HEADER_SIZE,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -64,17 +64,50 @@ impl<R: Read + Seek> ReadBox<&mut R> for Mp4aBox {
         reader.read_u16::<BigEndian>()?; // reserved
         let data_reference_index = reader.read_u16::<BigEndian>()?;
         let version = reader.read_u16::<BigEndian>()?;
-        reader.read_u16::<BigEndian>()?; // reserved
-        reader.read_u32::<BigEndian>()?; // reserved
-        let channelcount = reader.read_u16::<BigEndian>()?;
-        let samplesize = reader.read_u16::<BigEndian>()?;
+        reader.read_u16::<BigEndian>()?; // reserved / revision
+        reader.read_u32::<BigEndian>()?; // reserved / vendor
+        let mut channelcount = reader.read_u16::<BigEndian>()?;
+        let mut samplesize = reader.read_u16::<BigEndian>()?;
         reader.read_u32::<BigEndian>()?; // pre-defined, reserved
-        let samplerate = FixedPointU16::new_raw(reader.read_u32::<BigEndian>()?);
+        let mut samplerate = FixedPointU16::new_raw(reader.read_u32::<BigEndian>()?);
 
         if version == 1 {
-            // Skip QTFF
+            // Skip QTFF SoundDescriptionV1 extension (16 bytes).
             reader.read_u64::<BigEndian>()?;
             reader.read_u64::<BigEndian>()?;
+        } else if version == 2 {
+            // QTFF SoundDescriptionV2: the ISO-style fields above land on
+            // `sizeOfStructOnly`. Child atoms (usually `wave`) start at that
+            // absolute offset from the atom start. Without this skip, the
+            // float64 sample rate is misread as a box header (see #32).
+            let size_of_struct_only = u64::from(reader.read_u32::<BigEndian>()?);
+            if size_of_struct_only < HEADER_SIZE || size_of_struct_only > size {
+                return Err(Error::InvalidData("invalid mp4a sizeOfStructOnly"));
+            }
+            let struct_end = start + size_of_struct_only;
+            // Remaining V2 fields before extensions: rate, channels, …
+            if reader.stream_position()? + 8 + 4 <= struct_end {
+                let rate = f64::from_bits(reader.read_u64::<BigEndian>()?);
+                let channels = reader.read_u32::<BigEndian>()?;
+                // V2 uses u32 channels + f64 rate; Mp4aBox keeps the ISO u16
+                // fields. Saturate / leave ISO values when out of u16 range.
+                channelcount = u16::try_from(channels).unwrap_or(u16::MAX);
+                if rate.is_finite() && rate > 0.0 && rate <= f64::from(u16::MAX) {
+                    samplerate = FixedPointU16::new(rate as u16);
+                }
+                // Prefer bits-per-channel when present (after always0x7F000000).
+                if reader.stream_position()? + 8 <= struct_end {
+                    reader.read_u32::<BigEndian>()?; // always 0x7F000000
+                    let bits = reader.read_u32::<BigEndian>()?;
+                    if bits > 0 {
+                        samplesize = u16::try_from(bits).unwrap_or(samplesize);
+                    }
+                }
+            }
+            if struct_end < reader.stream_position()? {
+                return Err(Error::InvalidData("mp4a sizeOfStructOnly before cursor"));
+            }
+            skip_bytes_to(reader, struct_end)?;
         }
 
         // Find esds in mp4a or wave
@@ -92,11 +125,35 @@ impl<R: Read + Seek> ReadBox<&mut R> for Mp4aBox {
                     "mp4a box contains a box with a larger size than it",
                 ));
             }
+            // size < HEADER_SIZE (incl. 0) would make skip_bytes_to seek
+            // backwards and hang the child / wave loops.
+            if s < HEADER_SIZE {
+                return Err(Error::InvalidData("mp4a child box too small"));
+            }
             if name == BoxType::EsdsBox {
                 esds = Some(EsdsBox::read_box(reader, s)?);
                 break;
             } else if name == BoxType::WaveBox {
-                // Typically contains frma, mp4a, esds, and a terminator atom
+                // QT: frma / mp4a / esds / terminator nested inside wave.
+                let wave_end = current + s;
+                while reader.stream_position()? < wave_end {
+                    let inner_pos = reader.stream_position()?;
+                    let inner = BoxHeader::read(reader)?;
+                    if inner.size < HEADER_SIZE || inner.size > s {
+                        return Err(Error::InvalidData(
+                            "wave box contains a box with an invalid size",
+                        ));
+                    }
+                    if inner.name == BoxType::EsdsBox {
+                        esds = Some(EsdsBox::read_box(reader, inner.size)?);
+                        break;
+                    }
+                    skip_bytes_to(reader, inner_pos + inner.size)?;
+                }
+                skip_bytes_to(reader, wave_end)?;
+                if esds.is_some() {
+                    break;
+                }
             } else {
                 // Skip boxes
                 let skip_to = current + s;
