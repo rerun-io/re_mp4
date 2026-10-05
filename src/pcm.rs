@@ -32,7 +32,7 @@ pub fn is_pcm_sample_entry(fourcc: &FourCC) -> bool {
 
 /// Best-effort WebCodecs-style codec string for a PCM sample-entry `FourCC`.
 ///
-/// Only returns a string when the FourCC alone determines the format. Entries
+/// Only returns a string when the `FourCC` alone determines the format. Entries
 /// that need sound-description sample size, endian flags, or a `pcmC` box
 /// (`in24`/`in32`/`fl*`/`lpcm`/`ipcm`/`fpcm`, and 8-bit `twos`/`sowt`) return
 /// [`None`] — we do not parse that metadata for [`crate::StsdBoxContent::Unknown`]
@@ -45,8 +45,6 @@ pub fn pcm_codec_string(fourcc: &FourCC) -> Option<&'static str> {
         b"raw " => Some("pcm-u8"),
         b"ulaw" => Some("ulaw"),
         b"alaw" => Some("alaw"),
-        // Need sample-size / endian / pcmC — unknown without sound description.
-        b"in24" | b"in32" | b"fl32" | b"fl64" | b"lpcm" | b"ipcm" | b"fpcm" => None,
         _ => None,
     }
 }
