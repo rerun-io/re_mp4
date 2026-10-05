@@ -26,10 +26,12 @@ fn pcm_in24_is_audio_and_chunk_coalesced() {
         "expected at least one coalesced chunk sample"
     );
 
+    // Endian/size for `in24` live in the sound description; we only have the
+    // FourCC on Unknown stsd entries, so do not invent a codec string.
     assert_eq!(
-        audio.codec_string(&mp4).as_deref(),
-        Some("pcm-s24"),
-        "in24 → pcm-s24 codec string"
+        audio.codec_string(&mp4),
+        None,
+        "in24 codec string needs sound-description metadata we do not parse yet"
     );
 
     // Contiguous chunks: each sample size should cover many PCM frames (≥1ms stereo s24 = 288 bytes).

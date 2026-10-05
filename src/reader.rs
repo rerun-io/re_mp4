@@ -134,19 +134,11 @@ impl Mp4 {
                     StsdBoxContent::Unknown(fourcc) if crate::pcm::is_pcm_sample_entry(fourcc)
                 );
 
-            let mut samples = if coalesce_pcm {
+            let samples = if coalesce_pcm {
                 build_pcm_chunk_samples(trak)
             } else {
                 build_table_samples(trak)
             };
-
-            if let Some(last_sample) = samples.last_mut() {
-                last_sample.duration = trak
-                    .mdia
-                    .mdhd
-                    .duration
-                    .saturating_sub(last_sample.decode_timestamp as u64);
-            }
 
             tracks.insert(
                 trak.tkhd.track_id,
@@ -339,16 +331,30 @@ fn sample_size_at(stsz: &crate::StszBox, sample_index: usize) -> u64 {
     }
 }
 
-fn samples_per_chunk_at(stsc: &crate::StscBox, chunk_number: u32) -> u32 {
-    let mut samples_per_chunk = stsc.entries[0].samples_per_chunk;
-    for entry in &stsc.entries {
-        if entry.first_chunk <= chunk_number {
-            samples_per_chunk = entry.samples_per_chunk;
-        } else {
+/// Consume `frame_count` source frames from `stts`, returning total duration.
+///
+/// Advances run cursors in O(stts runs touched), not O(frames).
+fn consume_stts_duration(
+    stts: &crate::SttsBox,
+    stts_run: &mut usize,
+    stts_remaining: &mut u32,
+    mut frame_count: u32,
+) -> u64 {
+    let mut duration = 0u64;
+    while frame_count > 0 {
+        while *stts_remaining == 0 && *stts_run + 1 < stts.entries.len() {
+            *stts_run += 1;
+            *stts_remaining = stts.entries[*stts_run].sample_count;
+        }
+        if *stts_remaining == 0 {
             break;
         }
+        let take = frame_count.min(*stts_remaining);
+        duration += u64::from(stts.entries[*stts_run].sample_delta) * u64::from(take);
+        *stts_remaining -= take;
+        frame_count -= take;
     }
-    samples_per_chunk
+    duration
 }
 
 /// One [`Sample`] per chunk for PCM (no CTTS) — mediabunny chunk rewrite.
@@ -371,31 +377,40 @@ fn build_pcm_chunk_samples(trak: &TrakBox) -> Vec<Sample> {
         return Vec::new();
     }
 
+    let constant_frame_size = (stsz.sample_size != 0).then_some(stsz.sample_size as u64);
+
     let mut samples = Vec::with_capacity(chunk_count);
     let mut sample_idx = 0usize;
     let mut dts = 0i64;
+    let mut stsc_run = 0usize;
     let mut stts_run = 0usize;
     let mut stts_remaining = stts.entries.first().map(|e| e.sample_count).unwrap_or(0);
 
     for chunk_i in 0..chunk_count {
         let chunk_number = (chunk_i + 1) as u32;
-        let samples_per_chunk = samples_per_chunk_at(stsc, chunk_number);
+        while stsc_run + 1 < stsc.entries.len()
+            && stsc.entries[stsc_run + 1].first_chunk <= chunk_number
+        {
+            stsc_run += 1;
+        }
+        let samples_per_chunk = stsc.entries[stsc_run].samples_per_chunk;
         let offset = get_sample_chunk_offset(stbl, u64::from(chunk_number));
 
-        let mut size = 0u64;
-        let mut duration = 0u64;
-        for _ in 0..samples_per_chunk {
-            size += sample_size_at(stsz, sample_idx);
-            while stts_remaining == 0 && stts_run + 1 < stts.entries.len() {
-                stts_run += 1;
-                stts_remaining = stts.entries[stts_run].sample_count;
+        let (size, duration) = if let Some(frame_size) = constant_frame_size {
+            (
+                frame_size * u64::from(samples_per_chunk),
+                consume_stts_duration(stts, &mut stts_run, &mut stts_remaining, samples_per_chunk),
+            )
+        } else {
+            let mut size = 0u64;
+            for i in 0..samples_per_chunk as usize {
+                size += sample_size_at(stsz, sample_idx + i);
             }
-            if stts_remaining > 0 {
-                duration += u64::from(stts.entries[stts_run].sample_delta);
-                stts_remaining -= 1;
-            }
-            sample_idx += 1;
-        }
+            let duration =
+                consume_stts_duration(stts, &mut stts_run, &mut stts_remaining, samples_per_chunk);
+            (size, duration)
+        };
+        sample_idx += samples_per_chunk as usize;
 
         samples.push(Sample {
             id: samples.len() as u32,
@@ -550,6 +565,17 @@ fn build_table_samples(trak: &TrakBox) -> Vec<Sample> {
             duration: 0, // filled once we know next sample timestamp
         });
         sample_n += 1;
+    }
+
+    // Last sample duration from track media duration, using unshifted DTS.
+    // Must run before DTS/CTS normalization below — after a shift,
+    // `mdhd.duration - last.dts` is wrong (and can underflow to 0).
+    if let Some(last_sample) = samples.last_mut() {
+        last_sample.duration = trak
+            .mdia
+            .mdhd
+            .duration
+            .saturating_sub(last_sample.decode_timestamp as u64);
     }
 
     // Fixup all DTS by the dts shift if there's one.
