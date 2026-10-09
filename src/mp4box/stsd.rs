@@ -114,7 +114,10 @@ impl StsdBoxContent {
                 format!("vp09.{profile:02}.{level:02}.{bit_depth:02}")
             }
 
-            Self::Mp4a(_) | Self::Tx3g(_) | Self::Unknown(_) => return None,
+            Self::Mp4a(_) | Self::Tx3g(_) => return None,
+            Self::Unknown(fourcc) => {
+                return crate::pcm::pcm_codec_string(fourcc).map(str::to_owned);
+            }
         })
     }
 }
@@ -175,6 +178,11 @@ pub struct StsdBox {
 }
 
 impl StsdBox {
+    /// Is this an uncompressed PCM sample entry (`in24`, `sowt`, `twos`, …)?
+    pub fn is_pcm(&self) -> bool {
+        matches!(&self.contents, StsdBoxContent::Unknown(fourcc) if crate::pcm::is_pcm_sample_entry(fourcc))
+    }
+
     pub fn kind(&self) -> Option<TrackKind> {
         match &self.contents {
             StsdBoxContent::Av01(_)
@@ -185,6 +193,7 @@ impl StsdBox {
             | StsdBoxContent::Vp09(_) => Some(TrackKind::Video),
             StsdBoxContent::Mp4a(_) => Some(TrackKind::Audio),
             StsdBoxContent::Tx3g(_) => Some(TrackKind::Subtitle),
+            StsdBoxContent::Unknown(_) if self.is_pcm() => Some(TrackKind::Audio),
             StsdBoxContent::Unknown(_) => None,
         }
     }

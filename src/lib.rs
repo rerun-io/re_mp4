@@ -17,6 +17,9 @@ pub use types::*;
 mod mp4box;
 pub use mp4box::*;
 
+mod pcm;
+pub use pcm::{is_pcm_sample_entry, pcm_codec_string};
+
 mod reader;
 pub use reader::{Mp4, Sample, Track};
 
