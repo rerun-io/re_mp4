@@ -50,9 +50,43 @@ fn pcm_in24_is_audio_and_chunk_coalesced() {
         total_bytes, 576_000,
         "sum of chunk sizes should match PCM payload"
     );
+
+    // Timing: chunks must be contiguous and cover the whole track.
+    for pair in audio.samples.windows(2) {
+        assert_eq!(
+            pair[1].decode_timestamp,
+            pair[0].decode_timestamp + pair[0].duration.cast_signed(),
+            "coalesced chunks must be contiguous in time"
+        );
+        assert!(
+            pair[0].offset < pair[1].offset,
+            "chunk offsets must increase"
+        );
+    }
+    for sample in &audio.samples {
+        assert_eq!(sample.composition_timestamp, sample.decode_timestamp);
+    }
+    let total_duration: u64 = audio.samples.iter().map(|s| s.duration).sum();
+    assert_eq!(audio.timescale, 48_000);
+    assert_eq!(total_duration, 96_000, "2s @ 48kHz");
+    assert_eq!(total_duration, audio.duration);
+
+    // Chunk offsets must match `stco`.
+    let trak = mp4
+        .moov
+        .traks
+        .iter()
+        .find(|t| t.tkhd.track_id == audio.track_id)
+        .unwrap();
+    let stco = trak.mdia.minf.stbl.stco.as_ref().expect("stco");
+    assert_eq!(stco.entries.len(), audio.samples.len());
+    for (chunk_offset, sample) in stco.entries.iter().zip(&audio.samples) {
+        assert_eq!(u64::from(*chunk_offset), sample.offset);
+    }
 }
 
 #[test]
+#[ignore = "set RE_MP4_PCM_LONG_MOV to a long in24 .mov and run with --ignored"]
 fn pcm_coalesce_optional_long_plate() {
     // Optional stress path: testvideo 60s plate (~2.9M frames → few thousand chunks).
     let path = std::env::var_os("RE_MP4_PCM_LONG_MOV").map(std::path::PathBuf::from);
