@@ -30,19 +30,16 @@ pub fn is_pcm_sample_entry(fourcc: &FourCC) -> bool {
     )
 }
 
-/// Best-effort WebCodecs-style codec string for a PCM sample-entry `FourCC`.
+/// Best-effort `WebCodecs` codec string for a PCM sample-entry `FourCC`.
 ///
 /// Only returns a string when the `FourCC` alone determines the format. Entries
-/// that need sound-description sample size, endian flags, or a `pcmC` box
-/// (`in24`/`in32`/`fl*`/`lpcm`/`ipcm`/`fpcm`, and 8-bit `twos`/`sowt`) return
-/// [`None`] — we do not parse that metadata for [`crate::StsdBoxContent::Unknown`]
-/// today, and inventing LE/s16 defaults would mislead consumers.
+/// that need the sound-description sample size, endian flags, or a `pcmC` box
+/// (`in24`/`in32`/`fl*`/`lpcm`/`ipcm`/`fpcm`, and `twos`/`sowt`/`raw ` whose
+/// width is 8 or 16 bit depending on the sound description) return [`None`] —
+/// we do not parse that metadata for [`crate::StsdBoxContent::Unknown`] today,
+/// and inventing s16 defaults would mislead consumers.
 pub fn pcm_codec_string(fourcc: &FourCC) -> Option<&'static str> {
     match &fourcc.value {
-        // FourCC encodes endianness; 16-bit is the common QT sample size.
-        b"twos" => Some("pcm-s16be"),
-        b"sowt" => Some("pcm-s16"),
-        b"raw " => Some("pcm-u8"),
         b"ulaw" => Some("ulaw"),
         b"alaw" => Some("alaw"),
         _ => None,
@@ -62,18 +59,12 @@ mod tests {
 
     #[test]
     fn unambiguous_pcm_fourccs() {
-        assert_eq!(
-            pcm_codec_string(&FourCC { value: *b"twos" }),
-            Some("pcm-s16be")
-        );
-        assert_eq!(
-            pcm_codec_string(&FourCC { value: *b"sowt" }),
-            Some("pcm-s16")
-        );
-        assert_eq!(
-            pcm_codec_string(&FourCC { value: *b"raw " }),
-            Some("pcm-u8")
-        );
+        assert_eq!(pcm_codec_string(&FourCC { value: *b"ulaw" }), Some("ulaw"));
+        assert_eq!(pcm_codec_string(&FourCC { value: *b"alaw" }), Some("alaw"));
+        // Sample width lives in the sound description, which we do not parse:
+        assert_eq!(pcm_codec_string(&FourCC { value: *b"twos" }), None);
+        assert_eq!(pcm_codec_string(&FourCC { value: *b"sowt" }), None);
+        assert_eq!(pcm_codec_string(&FourCC { value: *b"raw " }), None);
         assert_eq!(pcm_codec_string(&FourCC { value: *b"fpcm" }), None);
         assert_eq!(pcm_codec_string(&FourCC { value: *b"ipcm" }), None);
         assert_eq!(pcm_codec_string(&FourCC { value: *b"lpcm" }), None);

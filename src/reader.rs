@@ -2,8 +2,8 @@ use std::collections::BTreeMap;
 use std::io::{Read, Seek};
 
 use crate::{
-    skip_box, BoxHeader, BoxType, EmsgBox, Error, FtypBox, MoofBox, MoovBox, ReadBox as _, Result,
-    StblBox, StsdBoxContent, TfhdBox, TrackId, TrackKind, TrakBox, TrunBox,
+    skip_box, BoxHeader, BoxType, EmsgBox, Error, FourCC, FtypBox, MoofBox, MoovBox, ReadBox as _,
+    Result, StblBox, StsdBoxContent, TfhdBox, TrackId, TrackKind, TrakBox, TrunBox,
 };
 
 #[derive(Debug)]
@@ -128,11 +128,14 @@ impl Mp4 {
         // load samples from traks
         for trak in &self.moov.traks {
             let stbl = &trak.mdia.minf.stbl;
-            let coalesce_pcm = stbl.ctts.is_none()
-                && matches!(
-                    &stbl.stsd.contents,
-                    StsdBoxContent::Unknown(fourcc) if crate::pcm::is_pcm_sample_entry(fourcc)
-                );
+            // `raw ` is also QuickTime's uncompressed *video* FourCC, so require a sound handler.
+            // PCM has no reordering, so a CTTS with all-zero offsets is harmless.
+            let coalesce_pcm = stbl.stsd.is_pcm()
+                && trak.mdia.hdlr.handler_type == FourCC::from(*b"soun")
+                && stbl
+                    .ctts
+                    .as_ref()
+                    .is_none_or(|ctts| ctts.entries.iter().all(|e| e.sample_offset == 0));
 
             let samples = if coalesce_pcm {
                 build_pcm_chunk_samples(trak)
@@ -378,6 +381,11 @@ fn build_pcm_chunk_samples(trak: &TrakBox) -> Vec<Sample> {
     }
 
     let constant_frame_size = (stsz.sample_size != 0).then_some(stsz.sample_size as u64);
+    let total_frames = if constant_frame_size.is_some() {
+        stsz.sample_count as usize
+    } else {
+        stsz.sample_sizes.len()
+    };
 
     let mut samples = Vec::with_capacity(chunk_count);
     let mut sample_idx = 0usize;
@@ -393,24 +401,30 @@ fn build_pcm_chunk_samples(trak: &TrakBox) -> Vec<Sample> {
         {
             stsc_run += 1;
         }
-        let samples_per_chunk = stsc.entries[stsc_run].samples_per_chunk;
+        // Never trust `stsc` beyond what `stsz` actually describes (truncated/malformed files).
+        let frames_left = total_frames.saturating_sub(sample_idx);
+        let samples_per_chunk =
+            (stsc.entries[stsc_run].samples_per_chunk as usize).min(frames_left);
+        if samples_per_chunk == 0 {
+            break;
+        }
         let offset = get_sample_chunk_offset(stbl, u64::from(chunk_number));
 
-        let (size, duration) = if let Some(frame_size) = constant_frame_size {
-            (
-                frame_size * u64::from(samples_per_chunk),
-                consume_stts_duration(stts, &mut stts_run, &mut stts_remaining, samples_per_chunk),
-            )
+        let size = if let Some(frame_size) = constant_frame_size {
+            frame_size * samples_per_chunk as u64
         } else {
-            let mut size = 0u64;
-            for i in 0..samples_per_chunk as usize {
-                size += sample_size_at(stsz, sample_idx + i);
-            }
-            let duration =
-                consume_stts_duration(stts, &mut stts_run, &mut stts_remaining, samples_per_chunk);
-            (size, duration)
+            stsz.sample_sizes[sample_idx..sample_idx + samples_per_chunk]
+                .iter()
+                .map(|&s| u64::from(s))
+                .sum()
         };
-        sample_idx += samples_per_chunk as usize;
+        let duration = consume_stts_duration(
+            stts,
+            &mut stts_run,
+            &mut stts_remaining,
+            samples_per_chunk as u32,
+        );
+        sample_idx += samples_per_chunk;
 
         samples.push(Sample {
             id: samples.len() as u32,
