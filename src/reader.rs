@@ -2,8 +2,8 @@ use std::collections::BTreeMap;
 use std::io::{Read, Seek};
 
 use crate::{
-    skip_box, BoxHeader, BoxType, EmsgBox, Error, FourCC, FtypBox, MoofBox, MoovBox, ReadBox as _,
-    Result, StblBox, StsdBoxContent, TfhdBox, TrackId, TrackKind, TrakBox, TrunBox,
+    box_start, skip_box, BoxHeader, BoxType, EmsgBox, Error, FourCC, FtypBox, MoofBox, MoovBox,
+    ReadBox as _, Result, StblBox, StsdBoxContent, TfhdBox, TrackId, TrackKind, TrakBox, TrunBox,
 };
 
 #[derive(Debug)]
@@ -12,6 +12,13 @@ pub struct Mp4 {
     pub moov: MoovBox,
     pub moofs: Vec<MoofBox>,
     pub emsgs: Vec<EmsgBox>,
+
+    /// The source ended in the middle of a top-level box, and that box was ignored.
+    ///
+    /// Samples may then lie partly or fully past the end of the source:
+    /// check [`Sample::offset`] and [`Sample::size`] against the source length before reading them.
+    pub is_truncated: bool,
+
     tracks: BTreeMap<TrackId, Track>,
 }
 
@@ -33,6 +40,9 @@ impl Mp4 {
         Ok((Self::read_bytes(&bytes)?, bytes))
     }
 
+    /// Parses MP4 data from `reader`, which holds `size` bytes.
+    ///
+    /// A source that ends in the middle of a top-level box is parsed up to that box, see [`Self::is_truncated`].
     pub fn read<R: Read + Seek>(mut reader: R, size: u64) -> Result<Self> {
         let start = reader.stream_position()?;
 
@@ -41,16 +51,28 @@ impl Mp4 {
         let mut moofs = Vec::new();
         let mut moof_offsets = Vec::new();
         let mut emsgs = Vec::new();
+        let mut is_truncated = false;
 
         let mut current = start;
         while current < size {
             // Get box header.
-            let header = BoxHeader::read(&mut reader)?;
+            let header = match BoxHeader::read(&mut reader) {
+                Ok(header) => header,
+                Err(Error::Io(err)) if err.kind() == std::io::ErrorKind::UnexpectedEof => {
+                    is_truncated = true;
+                    break;
+                }
+                Err(err) => return Err(err),
+            };
             let BoxHeader { name, size: s } = header;
-            if s > size {
-                return Err(Error::InvalidData(
-                    "file contains a box with a larger size than it",
-                ));
+
+            if s != 0
+                && box_start(&mut reader)?
+                    .checked_add(s)
+                    .is_none_or(|box_end| size < box_end)
+            {
+                is_truncated = true;
+                break;
             }
 
             // Break if size zero BoxHeader, which can result in dead-loop.
@@ -99,6 +121,7 @@ impl Mp4 {
             moov,
             moofs,
             emsgs,
+            is_truncated,
             tracks: Default::default(),
         };
 
