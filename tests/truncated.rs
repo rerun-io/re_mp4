@@ -103,8 +103,22 @@ fn cut_before_end_of_moov_is_an_error() {
     let (moov_start, moov_len) = find_box(&bytes, b"moov", 0);
 
     let result = re_mp4::Mp4::read_bytes(&bytes[..moov_start + moov_len / 2]);
-    assert!(matches!(
-        result,
-        Err(re_mp4::Error::BoxNotFound(re_mp4::BoxType::MoovBox))
-    ));
+    assert!(matches!(result, Err(re_mp4::Error::InvalidData(_))));
+}
+
+/// The sample table of a fragment survives a cut in the `mdat` that follows it.
+#[test]
+fn cut_in_mdat_of_a_fragment_keeps_its_samples() {
+    let bytes = sample_bytes("fragmented_avc_bframes.mp4");
+    let (moof_start, moof_len) = find_box(&bytes, b"moof", 2);
+    let mdat_start = moof_start + moof_len;
+    let before_moof = re_mp4::Mp4::read_bytes(&bytes[..moof_start]).unwrap();
+
+    let mp4 = re_mp4::Mp4::read_bytes(&bytes[..mdat_start + 9]).unwrap();
+    assert!(mp4.is_truncated);
+    assert_eq!(mp4.moofs.len(), 3);
+    assert!(num_samples(&before_moof) < num_samples(&mp4));
+
+    let last = mp4.tracks().get(&1).unwrap().samples.last().unwrap();
+    assert!((mdat_start + 9) as u64 <= last.offset);
 }

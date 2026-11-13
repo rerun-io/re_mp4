@@ -15,8 +15,8 @@ pub struct Mp4 {
 
     /// The source ended in the middle of a top-level box, and that box was ignored.
     ///
-    /// Samples may then lie partly or fully past the end of the source:
-    /// check [`Sample::offset`] and [`Sample::size`] against the source length before reading them.
+    /// Sample ranges are never validated against the source length, whether this is set or not:
+    /// check [`Sample::offset`] and [`Sample::size`] before reading a sample.
     pub is_truncated: bool,
 
     tracks: BTreeMap<TrackId, Track>,
@@ -40,9 +40,10 @@ impl Mp4 {
         Ok((Self::read_bytes(&bytes)?, bytes))
     }
 
-    /// Parses MP4 data from `reader`, which holds `size` bytes.
+    /// Parses MP4 data from `reader`, up to the stream position `size`.
     ///
     /// A source that ends in the middle of a top-level box is parsed up to that box, see [`Self::is_truncated`].
+    /// It still needs a complete `ftyp` and `moov` box.
     pub fn read<R: Read + Seek>(mut reader: R, size: u64) -> Result<Self> {
         let start = reader.stream_position()?;
 
@@ -66,17 +67,16 @@ impl Mp4 {
             };
             let BoxHeader { name, size: s } = header;
 
-            if s != 0
-                && box_start(&mut reader)?
-                    .checked_add(s)
-                    .is_none_or(|box_end| size < box_end)
-            {
-                is_truncated = true;
+            // Break if size zero BoxHeader, which can result in dead-loop.
+            if s == 0 {
                 break;
             }
 
-            // Break if size zero BoxHeader, which can result in dead-loop.
-            if s == 0 {
+            if box_start(&mut reader)?
+                .checked_add(s)
+                .is_none_or(|box_end| size < box_end)
+            {
+                is_truncated = true;
                 break;
             }
 
@@ -113,7 +113,11 @@ impl Mp4 {
             return Err(Error::BoxNotFound(BoxType::FtypBox));
         };
         let Some(moov) = moov else {
-            return Err(Error::BoxNotFound(BoxType::MoovBox));
+            return Err(if is_truncated {
+                Error::InvalidData("source ends before the end of its moov box")
+            } else {
+                Error::BoxNotFound(BoxType::MoovBox)
+            });
         };
 
         let mut this = Self {
