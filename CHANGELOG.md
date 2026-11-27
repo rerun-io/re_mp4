@@ -1,5 +1,11 @@
 # `re_mp4` Changelog
 
+## 0.6.0 - 2026-11-27
+* ⚠️ Breaking: Remove leftover box size calculations and writer-only types [#34](https://github.com/rerun-io/re_mp4/pull/34) by [@emilk](https://github.com/emilk)
+* Parse QuickTime Sound Description version 2 in mp4a [#35](https://github.com/rerun-io/re_mp4/pull/35) by [@alexantoshuk](https://github.com/alexantoshuk)
+* Coalesce PCM sample tables into chunks [#38](https://github.com/rerun-io/re_mp4/pull/38) by [@alexantoshuk](https://github.com/alexantoshuk)
+* Parse MP4 files that end in the middle of a box [#40](https://github.com/rerun-io/re_mp4/pull/40) by [@rerun-rmack](https://github.com/rerun-rmack)
+
 ## 0.5.1 - 2026-07-08
 * Improve crate docstring [#26](https://github.com/rerun-io/re_mp4/pull/26)
 * Fix `Sample::is_sync` for fragmented mp4s [#27](https://github.com/rerun-io/re_mp4/pull/27)
